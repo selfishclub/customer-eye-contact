@@ -16,11 +16,23 @@
 ## 시작하는 법
 
 1. 내 저장소(스토리텔링 OS 폴더)를 Claude Code로 열어요.
-2. 이 폴더를 `.claude/skills/customer-eye-contact/`에 넣어요. zip이면 Claude에게 이렇게 말해요.
+2. Claude에게 이렇게 말하면 스킬 · 글꼴 · 필요한 도구까지 한 번에 깔아요.
    ```
-   이 zip을 내 저장소 .claude/skills/ 에 풀어서 스킬로 설치해 줘.
+   https://github.com/selfishclub/customer-eye-contact 를 내 저장소 .claude/skills/customer-eye-contact 에 스킬로 설치하고, scripts/install.sh 로 글꼴이랑 필요한 도구도 다 설치해 줘. 글꼴은 내 컴퓨터에도 설치해 줘.
    ```
+   zip으로 받았으면 「이 zip을 내 저장소 .claude/skills/ 에 풀어서 스킬로 설치하고 글꼴 · 도구도 다 설치해 줘」라고 해요. 「본체」 zip만 받아도 글꼴은 설치 스크립트가 알아서 채워요.
 3. **「영상 편집해 줘」**라고 말하면 시작해요.
+
+### 설치 스크립트 (직접 돌릴 때)
+
+| | 맥 · 리눅스 | 윈도우 (PowerShell) |
+|---|---|---|
+| 점검 + 스킬 글꼴 채우기 | `bash scripts/install.sh` | `powershell -ExecutionPolicy Bypass -File scripts\install.ps1` |
+| 없는 도구 설치 | `bash scripts/install.sh --tools` | `... install.ps1 -Tools` |
+| 글꼴을 내 컴퓨터에도 | `bash scripts/install.sh --system-fonts` | `... install.ps1 -SystemFonts` |
+| 둘 다 | `bash scripts/install.sh --all` | `... install.ps1 -Tools -SystemFonts` |
+
+도구 = ffmpeg · Node 24+ · Python · 받아쓰기(맥 Apple 칩은 mlx-whisper, 그 밖은 faster-whisper) · yt-dlp. 맥은 Homebrew, 윈도우는 winget으로 깔아요. 비밀번호 입력은 본인이 해요.
 
 「이 스킬 뭐야?」라고 물으면 Claude가 이 파일로 설명해 줘요.
 
@@ -67,7 +79,7 @@
 - 인터넷(첫 렌더 때 렌더 엔진 HyperFrames를 받아요)
 - 자막 없는 영상 원본
 
-0단계에서 Claude가 하나씩 확인하고, 동의하면 대신 설치해 줘요.
+0단계에서 Claude가 설치 스크립트로 점검하고, 동의하면 도구와 글꼴을 대신 설치해 줘요.
 
 ## 폴더 구성
 
@@ -78,6 +90,6 @@
 | `tools/editor/` | 셀피쉬 편집기(화면 · 서버 · 렌더), `README.md`에 편집기 값 설명 |
 | `tools/editor/fonts/` · `sfx/` | 무료 글꼴 6종 · 효과음 12종(라이선스 파일 포함) |
 | `assets/refs/` | 셀피쉬 기본 편집 틀 L1~L4(틀마다 우리 영상 장면 · 6초 미리보기 · 값) |
-| `scripts/` | 받아쓰기 · 쉼 줄이기 · 프레임 시트 · 레퍼런스 리서치(`find_refs.py`) |
+| `scripts/` | 설치(`install.sh` · `install.ps1`) · 받아쓰기 · 쉼 줄이기 · 프레임 시트 · 레퍼런스 리서치(`find_refs.py`) |
 
 만든 곳: 셀피쉬클럽 · 고객의 눈 워크숍 (2026-11)
