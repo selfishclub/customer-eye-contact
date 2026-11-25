@@ -1475,7 +1475,7 @@
       // 지금 고른 시각 자료를 5가지 레이아웃으로 (화면 속 화면은 4곳)
       const L = 3.4;
       const cur = currentVisual();
-      const base0 = cur ? JSON.parse(JSON.stringify(cur.it)) : { id: "p", tpl: "quote", title: "", tplData: { text: "이제는 밤에 깨지 않고 자요", source: "환자분" } };
+      const base0 = cur ? JSON.parse(JSON.stringify(cur.it)) : { id: "p", tpl: "quote", title: "", tplData: { text: "약 먹은 날짜를 세고 있어요", source: "환자분" } };
       const capT = st.data.captions[0] ? String(st.data.captions[0].text) : "자막은 얼굴을 피해 자리를 옮겨요";
       const keys = [["full"], ["splitTop"], ["splitBottom"], ["pip", "tr"], ["pip", "tl"], ["pip", "br"], ["pip", "bl"], ["float"]];
       items = keys.map(([lk, pos]) => {

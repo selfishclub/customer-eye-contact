@@ -871,7 +871,7 @@
     checklist: { items: "약 먹은 날짜 적기\n자극적인 음식 줄이기\n잠 7시간 지키기" },
     calendar: { year: "2026", month: "11", marks: "3,6,8,10" },
     route: { from: "인천", to: "부산", mode: "train" },
-    quote: { text: "이제는 밤에 깨지 않고 자요", source: "환자분" },
+    quote: { text: "약 먹은 날짜를 세고 있어요", source: "환자분" },
     timeline: { items: "두드러기,8,8개월\n한의원 치료,3,석 달" },
     chat: { theme: "yellow", frame: true },
   };
