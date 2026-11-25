@@ -1,48 +1,155 @@
 {
-  "version": 1,
-  "_설명": "셀피쉬 대표 레퍼런스 3개. 셀피쉬가 직접 만든 숏폼에서 뽑은 프레임 · 6초 미리보기 · 값. 값은 프레임 눈대중 + 픽셀 색이라 7~8단계 대조에서 확인한다. 스킬 4단계에서 고르면 편집 폴더 refs/ 로 복사해 ref-style.json 으로 쓴다.",
-  "refs": [
-    {
-      "id": "R1", "name": "전체 화면 + 위 큰 제목",
-      "from": "셀피쉬 「촬영 없이 AI 아바타 숏폼 제작법」 29초",
-      "src": "refs/R1/preview6s.mp4",
-      "frames": ["refs/R1/frame1.jpg", "refs/R1/frame2.jpg", "refs/R1/frame3.jpg", "refs/R1/frame4.jpg", "refs/R1/frame5.jpg", "refs/R1/frame6.jpg"],
-      "layout": "full",
-      "values": { "font": "Pretendard", "weight": 800, "size": 78, "color": "#ffffff", "boxOn": false,
-                  "strokeColor": "#111111", "strokeWidth": 8, "shadowOn": true, "y": 1300, "align": "center",
-                  "emMode": "box", "emColor": "#E9ED12", "motion": "pop", "speed": "fast" },
-      "head": { "font": "Pretendard", "weight": 900, "size": 104, "color": "#ffffff", "strokeColor": "#111111", "strokeWidth": 10, "emMode": "box", "emColor": "#E9ED12", "y": 300 },
-      "colors": ["#E9ED12", "#111111", "#ffffff"],
-      "motionNote": "위 두 줄 큰 제목이 처음부터 박혀 있고, 자막은 짧게 톡 튀어나옴. 중간에 앱 화면 캡처 카드가 화면을 덮었다 빠짐",
-      "fits": "아바타가 정면으로 말하는 영상, 방법 · 순서 설명"
-    },
-    {
-      "id": "R2", "name": "반반 컷 · 그림판",
-      "from": "셀피쉬 「이기적 공유 2편」 88초",
-      "src": "refs/R2/preview6s.mp4",
-      "frames": ["refs/R2/frame1.jpg", "refs/R2/frame2.jpg", "refs/R2/frame3.jpg", "refs/R2/frame4.jpg", "refs/R2/frame5.jpg", "refs/R2/frame6.jpg"],
-      "layout": "split",
-      "values": { "font": "Pretendard", "weight": 800, "size": 66, "color": "#ffffff", "boxOn": false,
-                  "strokeColor": "#111111", "strokeWidth": 6, "shadowOn": true, "y": 1560, "align": "center",
-                  "emMode": "color", "emColor": "#E9ED12", "motion": "words", "speed": "fast" },
-      "panel": { "bg": "#080808", "titleColor": "#ffffff", "highlight": "#E9ED12", "note": "위 절반 검정 그림판: 두 줄 제목(한 줄은 노랑 띠), 막대 · 숫자 · 아이콘 · 비교 그림" },
-      "colors": ["#E9ED12", "#080808", "#ffffff"],
-      "motionNote": "그림판 요소가 차례로 올라오고(막대가 자라고 숫자가 올라감), 자막은 낱말 하나씩 빠르게",
-      "fits": "숫자 · 비교 · 개념 설명이 많은 이야기"
-    },
-    {
-      "id": "R3", "name": "반반 컷 · 화면 보여 주기",
-      "from": "셀피쉬 「어사이드 2편」 40초",
-      "src": "refs/R3/preview6s.mp4",
-      "frames": ["refs/R3/frame1.jpg", "refs/R3/frame2.jpg", "refs/R3/frame3.jpg", "refs/R3/frame4.jpg", "refs/R3/frame5.jpg", "refs/R3/frame6.jpg"],
-      "layout": "split",
-      "values": { "font": "Pretendard", "weight": 800, "size": 62, "color": "#ffffff", "boxOn": false,
-                  "strokeColor": "#111111", "strokeWidth": 7, "shadowOn": true, "y": 1500, "align": "center",
-                  "emMode": "color", "emColor": "#E9ED12", "motion": "rise", "speed": "normal" },
-      "panel": { "bg": "#F8F8F8", "note": "위 절반에 앱 · 문서 화면 캡처가 스크롤 · 확대, 아래 절반은 노랑 배경의 얼굴" },
-      "colors": ["#D8D818", "#F8F8F8", "#111111"],
-      "motionNote": "화면 캡처가 천천히 스크롤 · 확대되고(켄 번즈), 자막은 아래에서 올라옴",
-      "fits": "도구 · 자료 · 메시지 캡처를 보여 주는 이야기"
-    }
-  ]
+ "version": 2,
+ "_설명": "셀피쉬 기본 편집 틀 4개 = 기본 레퍼런스. 틀마다 셀피쉬가 직접 만든 숏폼 장면 한 장(frame.jpg)과 6초 미리보기, 값. 레퍼런스가 없는 사람은 이 넷 중 하나를 고르면 레이아웃과 스타일 값이 함께 정해진다. 값은 장면 눈대중 + 픽셀 색이라 7단계 대조에서 확인한다.",
+ "refs": [
+  {
+   "id": "L1",
+   "name": "전체 화면 + 아래 자막",
+   "layout": "full",
+   "from": "셀피쉬 「촬영 없이 AI 아바타 숏폼 제작법」",
+   "src": "refs/L1/preview6s.mp4",
+   "frames": [
+    "refs/L1/frame.jpg"
+   ],
+   "values": {
+    "font": "Pretendard",
+    "weight": 800,
+    "size": 76,
+    "color": "#FFFFFF",
+    "boxOn": false,
+    "strokeColor": "#111111",
+    "strokeWidth": 8,
+    "y": 1300,
+    "align": "center",
+    "emMode": "box",
+    "emColor": "#A4F46D",
+    "motion": "pop",
+    "speed": "fast"
+   },
+   "colors": [
+    "#A4F46D",
+    "#111111",
+    "#FFFFFF"
+   ],
+   "motionNote": "얼굴이 화면을 꽉 채우고, 작은 윗줄 + 큰 아랫줄 2단 자막, 강조 낱말만 연두 상자",
+   "fits": "정면으로 말하는 영상 전체 · 처음 해 보는 분"
+  },
+  {
+   "id": "L2",
+   "name": "위 제목 띠",
+   "layout": "titleBand",
+   "from": "셀피쉬 「촬영 없이 AI 아바타 숏폼 제작법」 첫 장면",
+   "src": "refs/L2/preview6s.mp4",
+   "frames": [
+    "refs/L2/frame.jpg"
+   ],
+   "values": {
+    "font": "Pretendard",
+    "weight": 800,
+    "size": 72,
+    "color": "#FFFFFF",
+    "boxOn": false,
+    "strokeColor": "#111111",
+    "strokeWidth": 8,
+    "y": 1320,
+    "align": "center",
+    "emMode": "box",
+    "emColor": "#A4F46D",
+    "motion": "rise",
+    "speed": "normal"
+   },
+   "head": {
+    "font": "Pretendard",
+    "weight": 900,
+    "size": 104,
+    "color": "#111111",
+    "boxOn": true,
+    "boxColor": "#A4F46D",
+    "y": 300
+   },
+   "colors": [
+    "#A4F46D",
+    "#111111",
+    "#FFFFFF"
+   ],
+   "motionNote": "위에 두세 줄 큰 제목(연두 상자)이 계속 떠 있고 아래 자막만 바뀜",
+   "fits": "정보형 · 시리즈형, 제목으로 무슨 얘기인지 계속 보여 줄 때"
+  },
+  {
+   "id": "L3",
+   "name": "반반 컷",
+   "layout": "split",
+   "from": "셀피쉬 「이기적 공유 2편」",
+   "src": "refs/L3/preview6s.mp4",
+   "frames": [
+    "refs/L3/frame.jpg"
+   ],
+   "values": {
+    "font": "Pretendard",
+    "weight": 800,
+    "size": 64,
+    "color": "#FFFFFF",
+    "boxOn": false,
+    "strokeColor": "#111111",
+    "strokeWidth": 6,
+    "y": 1600,
+    "align": "center",
+    "emMode": "color",
+    "emColor": "#E6F119",
+    "motion": "words",
+    "speed": "fast"
+   },
+   "panel": {
+    "bg": "#0A0E0D",
+    "titleColor": "#FFFFFF",
+    "highlight": "#E6F119",
+    "note": "위 절반 검정 그림판: 두 줄 제목(한 줄은 노랑 띠) + 큰 숫자 · 막대 · 아이콘, 아래 절반 얼굴"
+   },
+   "colors": [
+    "#E6F119",
+    "#0A0E0D",
+    "#FFFFFF"
+   ],
+   "motionNote": "그림판 요소가 차례로 올라오고 숫자 · 막대가 자람, 자막은 낱말 하나씩",
+   "fits": "숫자 · 비교 · 개념 설명"
+  },
+  {
+   "id": "L4",
+   "name": "글자 전면 카드",
+   "layout": "card",
+   "from": "셀피쉬 「촬영 없이 AI 아바타 숏폼 제작법」 중간",
+   "src": "refs/L4/preview6s.mp4",
+   "frames": [
+    "refs/L4/frame.jpg"
+   ],
+   "values": {
+    "font": "Pretendard",
+    "weight": 800,
+    "size": 64,
+    "color": "#FFFFFF",
+    "boxOn": false,
+    "strokeColor": "#111111",
+    "strokeWidth": 6,
+    "y": 1300,
+    "align": "center",
+    "emMode": "color",
+    "emColor": "#E9ED12",
+    "motion": "rise",
+    "speed": "normal"
+   },
+   "panel": {
+    "bg": "#0A0A0A",
+    "titleColor": "#FFFFFF",
+    "highlight": "#E9ED12",
+    "note": "잠깐 화면 전체를 정리 카드(단계 목록 · 번호 칩)가 덮고 자막은 그 위에"
+   },
+   "colors": [
+    "#E9ED12",
+    "#0A0A0A",
+    "#FFFFFF"
+   ],
+   "motionNote": "정리 카드가 화면 전체로 올라와 천천히 스크롤, 1.5~3초 뒤 얼굴로 돌아옴",
+   "fits": "방법 · 순서 · 목록을 한 번에 보여 줄 때"
+  }
+ ]
 }
