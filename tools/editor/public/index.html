@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>셀피쉬 영상 편집기</title>
+    <link rel="stylesheet" href="/static/editor.css" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <script src="/scene.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">셀피쉬 영상 편집기 <span id="proj" class="muted"></span></div>
+      <div class="top-actions">
+        <span id="saveState" class="muted">불러오는 중…</span>
+        <button id="btnUndo" title="되돌리기 (⌘Z)">↶</button>
+        <button id="btnRedo" title="다시 하기 (⌘⇧Z)">↷</button>
+        <button id="btnSave" title="저장 (⌘S)">저장</button>
+        <button id="btnBoard" class="board-btn" title="모션 · 강조 · 줌 효과를 내 자막으로 움직여 보고 고르기">🎬 모션 한눈에 보기</button>
+        <button id="btnSend" class="accent" title="편집본과 피드백을 Claude에게 보냅니다">Claude에게 보내기</button>
+        <select id="renderQuality" title="렌더 화질">
+          <option value="draft">초안 렌더</option>
+          <option value="standard">고화질 렌더</option>
+        </select>
+        <button id="btnRender">렌더</button>
+        <span id="renderState" class="muted"></span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- 왼쪽: 레퍼런스 나란히 보기 · 대조표 -->
+      <aside class="panel left">
+        <h3>레퍼런스 <span class="muted small">refs/ 폴더</span>
+          <label class="chk small" title="내 미리보기를 재생하면 레퍼런스 영상도 같은 시각으로 재생"><input type="checkbox" id="refSync" checked /> 같이 재생</label></h3>
+        <div id="refList" class="ref-list"></div>
+        <div id="refView" class="ref-view"><div class="muted small">refs/ 에 영상이나 이미지를 넣으면 여기 보여요</div></div>
+        <div id="refNote" class="muted small"></div>
+        <h3>대조표 <span class="muted small">레퍼런스 값 ↔ 지금 값</span></h3>
+        <div id="refTable" class="ref-table"><div class="muted small">refs/ref-style.json 이 있으면 항목별로 비교해요</div></div>
+        <details class="ref-md"><summary class="muted small">REFERENCE.md 메모</summary><div id="refBox" class="ref"></div></details>
+      </aside>
+
+      <!-- 가운데: 미리보기 -->
+      <section class="center">
+        <div class="hookbar" id="hookBar"></div>
+        <div id="stageWrap" class="stage-wrap">
+          <div id="stage" class="stage">
+            <div id="sfroot"></div>
+            <div id="safe" class="safe hidden">
+              <div class="safe-top">인스타 위 가림</div>
+              <div class="safe-bottom">인스타 아래 가림 (설명 · 버튼)</div>
+              <div class="safe-right"></div>
+            </div>
+            <div id="anchor" class="anchor hidden" title="효과 · 카메라 기준점 (끌어서 옮기기)"></div>
+            <div id="selbox" class="selbox hidden"></div>
+          </div>
+        </div>
+        <div class="transport">
+          <button id="btnBack" title="한 프레임 뒤로 (←)">⏮</button>
+          <button id="btnPlay" class="play" title="재생 / 멈춤 (스페이스)">▶</button>
+          <button id="btnFwd" title="한 프레임 앞으로 (→)">⏭</button>
+          <span id="timeLabel" class="time">0.00 / 0.00</span>
+          <label class="chk"><input type="checkbox" id="chkSafe" /> 안전 영역</label>
+          <button id="btnFeedback" class="pin" title="지금 시각에 피드백 남기기 (F)">📍 지금 시각에 피드백</button>
+        </div>
+      </section>
+
+      <!-- 오른쪽: 추가 · 효과 · 속성 · 피드백 -->
+      <aside class="panel right">
+        <h3>스타일 <span class="muted small">하나씩 골라 바꿔요</span></h3>
+        <div class="st-box">
+          <div class="st-row"><span class="st-lab">무엇을</span><div class="seg" id="stTarget"></div></div>
+          <div class="st-row"><span class="st-lab">어디에</span><div class="seg" id="stScope"></div></div>
+          <div class="st-row" id="stRoleRow"><span class="st-lab">역할</span><select id="stRole"></select></div>
+          <div class="st-row"><span class="st-lab">시작점</span><select id="stPreset"></select><button id="stLoad" class="small-btn" title="고른 시작점 값을 아래 칸에 채워요 (그다음 다 고칠 수 있어요)">불러오기</button></div>
+          <div id="stInfo" class="muted small"></div>
+          <div class="st-row chips-row"><span class="st-lab">색 칩</span><div id="colorChips" class="chips"></div></div>
+          <div id="stFields"></div>
+          <details id="myStyleBox" class="grp"><summary>내 스타일 저장 · 불러오기</summary>
+            <div class="row"><input id="myStyleName" type="text" placeholder="이름 (예: 우리 한의원 자막)" /><button id="myStyleSave">저장</button></div>
+            <div id="myStyleList"></div>
+          </details>
+        </div>
+        <h3>기본 편집 틀 <span class="muted small">레퍼런스가 없어도 골라 시작</span></h3>
+        <div id="layoutBox"></div>
+        <h3>넣기</h3>
+        <div class="row wrap">
+          <button id="btnAddCap">＋ 자막</button>
+          <select id="ovKind"></select>
+          <button id="btnAddOv">＋ 아이콘</button>
+        </div>
+        <div class="row wrap">
+          <select id="sfxKind"></select>
+          <button id="btnSfxPlay" title="들어 보기">▶</button>
+          <button id="btnAddSfx">＋ 효과음 (재생 위치)</button>
+          <button id="btnSfxSuggest" title="자막 역할마다 어울리는 효과음을 제안 → 끄고 켜서 넣기">역할별 효과음 제안</button>
+        </div>
+        <h3>효과 <span class="muted small">이름을 누르면 재생 위치에 넣기 · ▶ 는 미리보기만</span></h3>
+        <div id="fxPalette" class="fx-palette"></div>
+        <div class="row">
+          <button id="btnAddKf" title="지금 시각에 카메라 키프레임 찍기 (K)">◆ 카메라 키프레임</button>
+        </div>
+
+        <h3>선택한 것</h3>
+        <div id="inspector" class="inspector"><div class="muted small">화면이나 타임라인에서 고르세요</div></div>
+
+        <h3>피드백 <span id="fbCount" class="muted small"></span></h3>
+        <div id="fbList" class="fb-list"></div>
+      </aside>
+    </main>
+
+    <!-- 아래: 타임라인 -->
+    <section class="timeline">
+      <div class="tl-head">
+        <div class="tl-labels">
+          <div class="tl-label ruler-label">초</div>
+          <div class="tl-label">📍 피드백</div>
+          <div class="tl-label">훅</div>
+          <div class="tl-label">틀 패널</div>
+          <div class="tl-label">자막</div>
+          <div class="tl-label">아이콘</div>
+          <div class="tl-label">효과</div>
+          <div class="tl-label">🔊 효과음</div>
+          <div class="tl-label">◆ 카메라</div>
+        </div>
+        <div id="tlScroll" class="tl-scroll">
+          <div id="tlInner" class="tl-inner">
+            <div id="ruler" class="ruler"></div>
+            <div class="track" data-track="feedback"></div>
+            <div class="track" data-track="hooks"></div>
+            <div class="track" data-track="panels"></div>
+            <div class="track" data-track="captions"></div>
+            <div class="track" data-track="overlays"></div>
+            <div class="track" data-track="effects"></div>
+            <div class="track" data-track="sfx"></div>
+            <div class="track" data-track="camera"></div>
+            <div id="playhead" class="playhead"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-foot muted small">
+        끌어서 옮기기 · 양 끝을 끌어 길이 바꾸기 · 빈 곳 클릭으로 이동 · 스페이스 재생 · F 피드백 · K 키프레임 · Delete 지우기 · ⌘Z 되돌리기
+        <span class="zoom">타임라인 확대 <input id="tlZoom" type="range" min="60" max="400" value="180" /></span>
+      </div>
+    </section>
+
+    <!-- 모션 고르기 보드 (화면 전체 팝업) -->
+    <div id="board" class="board hidden">
+      <div class="bd-head">
+        <b>모션 한눈에 보기</b>
+        <div class="seg" id="bdTabs"></div>
+        <span class="bd-sep"></span>
+        <span class="muted small">어디에</span><div class="seg" id="bdScope"></div>
+        <select id="bdRole"></select>
+        <span class="muted small">속도</span><div class="seg" id="bdSpeed"></div>
+        <button id="bdClose" class="bd-close">닫기 ✕</button>
+      </div>
+      <div id="bdInfo" class="bd-info muted"></div>
+      <div id="bdGrid" class="bd-grid"></div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+
+    <script src="/static/editor.js"></script>
+  </body>
+</html>
