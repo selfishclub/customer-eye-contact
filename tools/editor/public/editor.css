@@ -264,3 +264,5 @@ button.accent, .seg button.on, .hookbar .hk.on, .ref-list button.on, .bd-card .b
 .bd-groups button { padding: 3px 10px; font-size: 12px; border-radius: 2px; }
 .bd-groups button.on { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
 .bg-grp { font-size: 11.5px; color: var(--muted); margin: 8px 0 4px; font-weight: 700; }
+
+.bd-frame.full { aspect-ratio: 9 / 16; }

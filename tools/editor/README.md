@@ -21,7 +21,9 @@ node <스킬 경로>/tools/editor/server.ts --project edit/<slug> [--comp edit/<
 | 대조표 | `refs/ref-style.json` 이 있으면 글꼴 느낌 · 크기 · 글자색 · 상자 · 외곽선 · 위치 · 강조 · 모션을 레퍼런스 값 ↔ 지금 값으로 나란히, 항목마다 「맞음 / 더 가깝게 / 일부러 다르게」 체크(→ `refCheck`) · 「→ 적용」 · 「이 값으로 적용」 |
 | 🎬 모션 한눈에 보기 | 위 버튼 또는 스타일 「모션」 · 「강조 방식」 옆 🎬. 화면 전체 팝업에 카드가 계속 반복 재생: 탭 = 자막 모션 · 글자 모양 · 강조 방식 · 줌 · 카메라 · 훅 등장 모션 · 화면 전환 · 그림판 (모션 · 글자 모양은 「느낌」 묶음으로 거름). 배경은 지금 프레임 스틸, 문구는 고른 자막(없으면 그 역할 첫 자막). 위에서 어디에(전체 · 선택 · 같은 역할) · 역할 · 속도를 고르고 카드를 누르면 바로 적용(✓ 지금 적용됨). 줌 카드는 재생 위치에 효과를 넣음. 카드는 렌더와 같은 `scene.js` 로 그림 |
 | 기본 편집 틀 | 「기본 편집 틀」 카드: 전체 화면 · 반반 컷 · 위 제목 띠 · 글자 카드 (`layout`). 반반 컷 · 글자 카드는 「＋ 패널」로 구간마다 켜고, 타임라인 「틀 패널」 줄에서 길이 · 위치, 「선택한 것」에서 제목 · 설명 · 이미지 · 바탕색 · 등장 · 퇴장 |
-| 메신저 대화 | 「넣기」→「메신저 대화」(`kind: "chat"`) 또는 반반 컷 패널의 「메신저 대화」 칸. 특정 앱을 흉내 내지 않는 일반 모양: 위 상대 이름(기본 「환자분」, `hideName` 이면 첫 글자+OO) · 빈 동그라미 프로필 · 상대 말 왼쪽(흰) · 내 말 오른쪽(연노랑 #FFF1A8) · 배경 회청(#B9CBD8), `**강조**` 노랑 형광, 시각(`showTime`) · 읽음(`showRead`). 값 `messages: [{from:"them"\|"me", text, at}]` · `title` · `colors:{bg,them,me,text}` · `bubbleAnim`(pop · slide · rise · typing) · `gap`. 말풍선 모션은 🎬 「그림판」 탭에서 골라요 |
+| 시각 자료 레이아웃 | 그림판 · 대화 화면 · 장면 컷 하나하나에 `layout`: `full` 전체 화면 카드(영상 가림, 1.5~3초) · `splitTop` 반반 위 자료/아래 얼굴 · `splitBottom` 반반 위 얼굴/아래 자료 · `pip` 화면 속 화면(큰 자료 + 얼굴 동그라미, `pipPos` tr · tl · br · bl) · `float` 얼굴 위 떠 있는 카드(뒤 영상 어둡게). 🎬 「레이아웃」 탭에서 고른 자료를 8칸(화면 속 화면 4곳 포함)으로 나란히 보고 고름. 자료가 떠 있는 동안 자막은 얼굴 · 자료를 피해 자리가 자동으로 바뀜 |
+| 그림판 템플릿 | 패널 `tpl`: `bigNumber` 큰 숫자 카드 · `compare` 사실 비교 카드 · `checklist` 체크리스트 · `calendar` 달력 · `route` 경로 · 지도 · `quote` 인용 카드 · `timeline` 타임라인 · `chat` 대화 화면. 값은 `tplData`(아래). 직접 그린 SVG 아이콘 · 둥근 카드 · 부드러운 그림자 · Pretendard 3단 크기, 강조 색은 그 사람 스타일의 강조색(`--acc`). 🎬 「그림판」 탭 카드로 고름 |
+| 대화 화면 (메신저) | 실제 앱 화면 구조(앱 로고 · 이름 없음, 실제 캡처 쓰지 않음): 상태바 9:41 · 신호 · 와이파이 · 배터리 / 대화방 머리(뒤로 · 이름 · 검색 · 메뉴) / 날짜 칩 / 회색 사람 모양 프로필 + 이름 / 꼬리 달린 말풍선 · 옆 시간 · 안 읽음 1 / 아래 입력창. `theme`: `yellow` 노랑 말풍선(배경 #B2C7DA · 내 #FEE500 · 상대 흰색) · `blue` 파랑 말풍선(흰 배경 · 내 #0A84FF · 상대 #E9E9EB) · `white` 흰 말풍선. `frame`(폰 테두리, 기본 켬) · `messages: [{from:"them"\|"me", text, at}]` · `title`(일반 오버레이) / `chatTitle`(그림판) · `hideName`(첫 글자+OO) · `showTime` · `showRead`(안 읽음 1, 기본 켬) · `bubbleAnim`(pop · slide · rise · typing) · `gap` · `colors:{bg,them,me}`. 메시지가 아래에서 차례로 올라오며 위로 밀리고, 입력 중 점 → 말풍선, 안 읽음 1이 사라짐. 본문 40px · 작은 글자도 32px 이상 |
 | 효과음 | 「넣기」의 ▶ 로 들어 보기, 효과음을 고르면 크기 · ▶. 「역할별 효과음 제안」= 역할 달린 자막마다(강조=쿵 · 숫자=딸깍 · 질문=핑 · 마무리=딩) 끄고 켜서 한 번에 넣기 |
 | 내 스타일 | 지금 값 묶음을 이름 붙여 저장(`myStyles`) · 불러오기 · 「파일로」(편집 폴더 `my-style.json`, 저장소 `규칙/` 에 복사해 두면 다음 영상에도 씀) |
 | 효과 | 효과 이름을 누르면 재생 위치에 들어감, ▶ 는 넣지 않고 미리보기만. 노란 동그라미로 중심, 타임라인 끝을 끌어 길이 |
@@ -58,6 +60,14 @@ node <스킬 경로>/tools/editor/server.ts --project edit/<slug> [--comp edit/<
                 "callouts": "32,62,합곡\n70,48,곡지",              // 그림판: 선 그어 짚기 (줄마다 가로%,세로%,라벨)
                 "chart": "bar", "chartData": "1주,2\n2주,3", "chartUnit": "회", "chartMax": "",  // 그림판: bar 막대 자라기 · gauge 게이지 채우기 (말한 숫자만)
                 "image": "media/char.png", "bg": "#f4f1ea", "color": "#111214", "enter": "slide", "exit": "slide", "shift": 620 } ],  // split: 위 패널(얼굴은 shift 만큼 아래로) · card: 화면 전체 글자 카드. enter/exit: slide · fade · pop · cut · colorWipe(색면 와이프) · lightLeak(빛 띠 지나가기)
+  // 그림판 패널 (자료마다 레이아웃 · 템플릿)
+  "panels": [ { "id": "pn2", "start": 9, "end": 11.5, "layout": "pip", "pipPos": "tr", "tpl": "calendar", "title": "두드러기 난 날",
+                "tplData": { "year": "2026", "month": "11", "marks": "3,6,8" } } ],
+  //   tplData — bigNumber: number · unit · desc / compare: leftLabel · leftValue · rightLabel · rightValue
+  //             checklist: items(줄마다) / calendar: year · month · marks(쉼표) / route: from · to · mode(train · car · bus · walk · plane)
+  //             quote: text · source / timeline: items(줄마다 「이름,길이 숫자,표시 글」) / chat: messages · theme · frame …
+  //   compare 는 사실 비교만(「처음 3일에 한 번 → 지금 2일에 한 번」). 치료 전후 비교 · 효과 보장 표현에는 쓰지 않는다 (의료광고).
+  //   숫자 · 날짜 · 말은 영상에서 실제로 말했거나 본인이 확인한 것만.
   "band": { "text": "한의사가 알려주는 **잠**", "bg": "#111214", "color": "#ffffff", "h": 360, "size": 78 },        // titleBand 일 때 위 띠
   "sfx": [ { "name": "impact-bass-1", "file": "sfx/impact-bass-1.mp3", "start": 10.08, "end": 11.48, "volume": 0.45, "capId": "cap05", "auto": true } ],
   "refCheck": { "r1": { "font": "closer", "color": "match", "motion": "different", "updatedAt": "…" } },

@@ -415,7 +415,7 @@
       const hb = block("hook", "hook", Object.assign({}, ph, { start: ph.start || 0, end: ph.end || 3 }), hookName(ph, d.hooks.indexOf(ph)) + ": " + String(ph.text || "").replace(/\*\*/g, "").replace(/\n/g, " "));
       track("hooks").appendChild(hb);
     }
-    if (track("panels")) (d.panels || []).forEach((pn) => track("panels").appendChild(block("panel", "panel", pn, (d.layout === "card" ? "카드: " : d.layout === "split" ? "패널: " : "(틀이 꺼져 있음) ") + String(pn.title || pn.text || "").replace(/\*\*/g, ""))));
+    if (track("panels")) (d.panels || []).forEach((pn) => track("panels").appendChild(block("panel", "panel", pn, "🧩 " + (S.TEMPLATES[pn.tpl] && pn.tpl !== "none" ? S.TEMPLATES[pn.tpl] + " · " : "") + (S.VIS_LAYOUTS[S.visLayoutOf(pn, d)] || {}).label + ": " + String(pn.title || pn.text || "").replace(/\*\*/g, ""))));
     d.captions.forEach((c) => track("captions").appendChild(block("caption", "cap", c, String(c.text).replace(/\*\*/g, "") + (c.role ? " · " + (S.ROLES[c.role] || c.role) : "") + (c.noEmphasis ? " · 효과 문장" : "") + (c.look && Object.keys(c.look).length ? " ✎" : ""))));
     d.overlays.forEach((o) => track("overlays").appendChild(block("overlay", "ov", o, o.kind === "chat" ? "💬 메신저: " + String(o.title || "환자분") : o.kind === "insert" ? "🎬 장면 컷: " + String(o.src || "").split("/").pop() : o.kind === "sticker" ? "🧸 스티커: " + String(o.src || o.emoji || "").split("/").pop() : o.kind === "emoji" ? (o.emoji || "") + " 이모지" : S.isTextKind(o.kind) ? (S.OVERLAY_KINDS[o.kind]?.label || o.kind) + ": " + String(o.text || "").replace(/\*\*/g, "").replace(/\n/g, " ") : o.kind === "app" ? "앱 타일: " + (o.text || o.emoji || "") : S.OVERLAY_KINDS[o.kind]?.label || o.kind)));
     d.effects.forEach((e) => track("effects").appendChild(block("effect", "fx", e, (S.EFFECTS[e.type]?.label || e.type) + " ×" + (e.strength ?? 1))));
@@ -562,6 +562,7 @@
           field("이 영상 소리", sel("muted", it.muted === false ? "0" : "1", [["1", "끔 (기본)"], ["0", "켬"]])) +
           field("들어올 때", sel("enter", it.enter || "cut", Object.entries(S.INSERT_TRANS))) +
           field("나갈 때", sel("exit", it.exit || "cut", Object.entries(S.INSERT_TRANS))) +
+          layoutFields(it, "") +
           `<div class="muted small">영상은 media/ 폴더에 넣으면 목록에 나와요</div>` +
           `<div class="btns"><button data-act="dup">복제</button><button data-act="del" class="danger">지우기</button></div>`;
         box.innerHTML = h;
@@ -569,17 +570,11 @@
         return;
       }
       if (it.kind === "chat") {
-        const c = Object.assign({}, S.CHAT_COLORS, it.colors || {});
-        h = `<div class="type" style="color:var(--ov)">💬 메신저 대화</div>` +
-          `<div class="muted small">일반 메신저 모양 (특정 앱 흉내 없음). 줄마다 「상대: 내용 @오후 2:10」 · 「나: 내용」, **두 별표**는 노랑 형광</div>` +
-          field("상대 이름", txt("title", it.title || "환자분")) +
-          `<label class="chk"><input type="checkbox" data-k="hideName"${it.hideName ? " checked" : ""}> 이름 가리기 (첫 글자 + OO)</label>` +
-          `<textarea data-k="_messages" style="height:110px">${S.esc(msgsToText(it.messages))}</textarea>` +
-          `<label class="chk"><input type="checkbox" data-k="showTime"${it.showTime ? " checked" : ""}> 시각 표시</label> <label class="chk"><input type="checkbox" data-k="showRead"${it.showRead ? " checked" : ""}> 읽음 표시</label>` +
-          field("말풍선 모션", sel("bubbleAnim", it.bubbleAnim || "pop", Object.entries(S.CHAT_ANIMS))) + field("말풍선 사이 (초)", num("gap", it.gap ?? 0.9, 0.1)) +
-          field("배경색", `<input type="color" data-k="colors.bg" value="${c.bg}">`) + field("상대 말풍선", `<input type="color" data-k="colors.them" value="${c.them}">`) + field("내 말풍선", `<input type="color" data-k="colors.me" value="${c.me}">`) +
-          time + field("가로 x", num("x", it.x ?? 540, 1)) + field("세로 y (위쪽)", num("y", it.y ?? 260, 1)) + field("너비", num("w", it.w || 900, 10)) +
-          field("등장", sel("enter", it.enter || "pop", [["pop", "톡 커지기"], ["rise", "아래서 올라옴"], ["fade", "서서히"], ["none", "바로"]])) +
+        h = `<div class="type" style="color:var(--ov)">💬 대화 화면 (메신저)</div>` +
+          `<div class="muted small">실제 메신저 화면 구조 (앱 로고 · 이름 없음, 실제 캡처 쓰지 않음). 줄마다 「상대: 내용 @오후 2:10」 · 「나: 내용」, **두 별표**는 노랑 형광</div>` +
+          field("상대 이름", txt("title", it.title || "환자분")) + chatFields(it) + time +
+          layoutFields(it, "(레이아웃 없이 원하는 자리)") +
+          (!it.layout ? field("가로 x", num("x", it.x ?? 540, 1)) + field("세로 y (위쪽)", num("y", it.y ?? 260, 1)) + field("너비", num("w", it.w || 900, 10)) + field("높이", num("h", it.h || 1180, 10)) : "") +
           field("퇴장", sel("exit", it.exit || "none", [["none", "바로"], ["pop", "작아지며 사라짐"]])) +
           `<div class="btns"><button data-act="dup">복제</button><button data-act="del" class="danger">지우기</button></div>`;
         box.innerHTML = h;
@@ -633,22 +628,17 @@
         `<div class="btns"><button data-act="dup">복제</button><button data-act="del" class="danger">지우기</button></div>`;
     } else if (st.sel.type === "panel") {
       const imgs = [...new Set([...(st.media.images || []), it.image || ""].filter(Boolean))];
-      h = `<div class="type" style="color:#3fb6a8">${st.data.layout === "card" ? "글자 카드" : "위 패널 (반반 컷)"}</div>` +
-        (st.data.layout !== "split" && st.data.layout !== "card" ? `<div class="muted small">지금 틀이 「${S.esc(S.LAYOUTS[st.data.layout].label)}」이라 안 보여요. 「기본 편집 틀」에서 반반 컷이나 글자 카드를 고르세요</div>` : "") +
+      h = `<div class="type" style="color:#3fb6a8">🧩 그림판 (시각 자료)</div>` +
+        layoutFields(it, null) +
+        field("템플릿", sel("tpl", it.tpl || "none", Object.entries(S.TEMPLATES))) + tplFields(it) +
+        (it.tpl === "chat" ? field("상대 이름", txt("chatTitle", it.chatTitle || "환자분")) + chatFields(it) : "") +
         `<label class="muted small">제목</label><textarea data-k="title">${S.esc(it.title || "")}</textarea>` +
-        `<label class="muted small">설명 글</label><textarea data-k="text">${S.esc(it.text || "")}</textarea>` + time +
+        `<label class="muted small">설명 글 (선택)</label><textarea data-k="text">${S.esc(it.text || "")}</textarea>` + time +
         field("이미지", sel("image", it.image || "", [["", "(없음)"], ...imgs.map((v) => [v, v.split("/").pop()])])) +
-        field("바탕색", `<input type="color" data-k="bg" value="${it.bg || (st.data.layout === "card" ? "#111214" : "#f4f1ea")}">`) +
-        field("글자색", `<input type="color" data-k="color" value="${it.color || (st.data.layout === "card" ? "#ffffff" : "#111214")}">`) +
-        field("들어올 때", sel("enter", it.enter || (st.data.layout === "split" ? "slide" : "fade"), Object.entries(S.PANEL_TRANS))) +
-        field("나갈 때", sel("exit", it.exit || it.enter || (st.data.layout === "split" ? "slide" : "fade"), Object.entries(S.PANEL_TRANS))) +
-        (st.data.layout === "split" ? field("얼굴 내리는 정도", num("shift", it.shift ?? 620, 10)) : "") +
-        `<label class="muted small">메신저 대화 (줄마다 「상대: 내용 @시각」 · 「나: 내용」, 비우면 없음)</label><textarea data-k="_messages">${S.esc(msgsToText(it.messages))}</textarea>` +
-        (it.messages && it.messages.length ? field("상대 이름", txt("chatTitle", it.chatTitle || "환자분")) + field("말풍선 모션", sel("bubbleAnim", it.bubbleAnim || "pop", Object.entries(S.CHAT_ANIMS))) : "") +
+        field("바탕색", `<input type="color" data-k="bg" value="${it.bg || (it.layout === "float" ? "#ffffff" : "#f3f4f6")}">`) +
+        field("들어올 때", sel("enter", it.enter || "auto", [["auto", "레이아웃에 맞게"], ...Object.entries(S.PANEL_TRANS)])) +
         `<label class="muted small">선 그어 짚기 (줄마다 「가로%,세로%,라벨」)</label><textarea data-k="callouts" placeholder="32,62,합곡">${S.esc(it.callouts || "")}</textarea>` +
-        field("그래프", sel("chart", it.chart || "none", [["none", "없음"], ["bar", "막대 자라기"], ["gauge", "게이지 채우기"]])) +
-        (it.chart && it.chart !== "none" ? `<label class="muted small">값 (줄마다 「라벨,값」 — 영상에서 말한 숫자만)</label><textarea data-k="chartData">${S.esc(it.chartData || "")}</textarea>` + field("단위", txt("chartUnit", it.chartUnit)) + field("최댓값 (비우면 자동)", txt("chartMax", it.chartMax)) : "") +
-        `<div class="muted small">**두 별표** 사이는 노랑 강조, 엔터는 줄바꿈</div>` +
+        `<div class="muted small">**두 별표** 사이는 강조, 엔터는 줄바꿈. 숫자는 영상에서 말한 것만</div>` +
         `<div class="btns"><button data-act="dup">복제</button><button data-act="del" class="danger">지우기</button></div>`;
     } else if (st.sel.type === "hook") {
       const i = st.data.hooks.indexOf(it);
@@ -679,6 +669,37 @@
     box.innerHTML = h;
     bindInspector(box, it);
   }
+
+  // 시각 자료 레이아웃 칸 (그림판 · 대화 · 장면 컷 공용)
+  const layoutFields = (it, allowNone) =>
+    field("레이아웃", sel("layout", it.layout || "", [...(allowNone ? [["", allowNone]] : []), ...Object.entries(S.VIS_LAYOUTS).map(([k, v]) => [k, v.label])])) +
+    (it.layout === "pip" ? field("얼굴 동그라미", sel("pipPos", it.pipPos || "tr", Object.entries(S.PIP_POS))) : "") +
+    `<div class="muted small">🎬 「레이아웃」 탭에서 5가지를 나란히 보고 고를 수 있어요. 반반일 때 자막은 얼굴을 피해 자동으로 옮겨져요</div>`;
+  const chatFields = (it) =>
+    field("테마", sel("theme", it.theme || "yellow", Object.entries(S.CHAT_THEMES).map(([k, v]) => [k, v.label]))) +
+    `<label class="chk"><input type="checkbox" data-k="frame"${it.frame !== false ? " checked" : ""}> 폰 테두리</label> ` +
+    `<label class="chk"><input type="checkbox" data-k="hideName"${it.hideName ? " checked" : ""}> 이름 가리기 (첫 글자 + OO)</label><br>` +
+    `<label class="chk"><input type="checkbox" data-k="showTime"${it.showTime !== false ? " checked" : ""}> 시각</label> <label class="chk"><input type="checkbox" data-k="showRead"${it.showRead !== false ? " checked" : ""}> 안 읽음 1</label>` +
+    `<textarea data-k="_messages" style="height:110px" placeholder="상대: 원장님 질문 있어요 @오후 2:10">${S.esc(msgsToText(it.messages))}</textarea>` +
+    field("말풍선 모션", sel("bubbleAnim", it.bubbleAnim || "pop", Object.entries(S.CHAT_ANIMS))) + field("말풍선 사이 (초)", num("gap", it.gap ?? 0.9, 0.1));
+  // 템플릿마다 칸: [키, 이름, 종류(text · area · select)]
+  const TPL_FIELDS = {
+    bigNumber: [["number", "숫자 (말한 숫자만)", "text"], ["unit", "단위", "text"], ["desc", "한 줄 설명", "text"]],
+    compare: [["leftLabel", "왼쪽 이름", "text"], ["leftValue", "왼쪽 값", "text"], ["rightLabel", "오른쪽 이름", "text"], ["rightValue", "오른쪽 값", "text"]],
+    checklist: [["items", "항목 (줄마다)", "area"]],
+    calendar: [["year", "연도", "text"], ["month", "월", "text"], ["marks", "동그라미 칠 날짜 (쉼표로)", "text"]],
+    route: [["from", "출발", "text"], ["to", "도착", "text"], ["mode", "이동", "mode"]],
+    quote: [["text", "말 (그대로)", "area"], ["source", "출처", "text"]],
+    timeline: [["items", "구간 (줄마다 「이름,길이 숫자,표시 글」)", "area"]],
+  };
+  const tplFields = (it) => {
+    const fs = TPL_FIELDS[it.tpl];
+    if (!fs) return "";
+    const td = Object.assign({}, S.TPL_SAMPLE[it.tpl] || {}, it.tplData || {});
+    return fs.map(([k, lab, ty]) => ty === "area" ? `<label class="muted small">${lab}</label><textarea data-k="tplData.${k}">${S.esc(td[k] || "")}</textarea>`
+      : ty === "mode" ? field(lab, sel("tplData." + k, td[k] || "train", Object.entries(S.ROUTE_MODES))) : field(lab, `<input type="text" data-k="tplData.${k}" value="${S.esc(td[k] || "")}">`)).join("") +
+      (it.tpl === "compare" ? `<div class="muted small">사실 비교만 (예: 처음 3일에 한 번 → 지금 2일에 한 번). 치료 전후 비교 · 효과 보장 표현에는 쓰지 않아요</div>` : "");
+  };
 
   // 메신저 말풍선: 줄마다 「상대: 내용 @오후 2:10」 / 「나: 내용」
   const msgsToText = (ms) => (ms || []).map((m) => `${m.from === "me" ? "나" : "상대"}: ${m.text}${m.at ? " @" + m.at : ""}`).join("\n");
@@ -719,7 +740,8 @@
         if (st.sel.type === "sfx" && k === "name") { it.file = "sfx/" + v + ".mp3"; it.end = r2(it.start + (S.SFX_LIB[v]?.dur || 0.6)); }
         if (k === "kind" && v === "title" && !it.text) it.text = "위 글자";
         if (k === "end" && it.end <= it.start) it.end = r2(it.start + 0.1);
-        changed(k === "kind" || k === "type" || k === "chart" || (st.sel.type === "overlay" && k === "src"));
+        if (k === "tpl" && v === "chat" && !(it.messages && it.messages.length)) it.messages = JSON.parse(JSON.stringify(SAMPLE_MSGS));
+        changed(k === "kind" || k === "type" || k === "chart" || k === "tpl" || k === "layout" || k === "theme" || (st.sel.type === "overlay" && k === "src"));
         if (k === "t") seek(it.t);
       });
       inp.addEventListener("blur", () => (snapped = false));
@@ -1293,7 +1315,24 @@
   }
 
   // ── 모션 고르기 보드: 내 자막 문구로 카드마다 반복 재생 (렌더와 같은 scene.js 코드) ──
-  const BOARD_TABS = { motion: `자막 모션 ${Object.values(S.CAPTION_MOTIONS).filter((m) => !m.hookOnly).length}`, look: `글자 모양 ${Object.values(S.STYLE_PRESETS).filter((p) => !p.old).length}`, em: `강조 방식 ${Object.keys(S.EM_MODES).length}`, fx: `줌 · 카메라 ${Object.keys(S.EFFECTS).length}`, hook: "훅 등장 모션", trans: "화면 전환", canvas: "그림판" };
+  const TPL_DESC = {
+    bigNumber: ["숫자가 굴러 올라가 멈춤 + 단위 + 한 줄", "기간 · 횟수 · 나이 (말한 숫자만)", "얼마나 됐나요"],
+    compare: ["왼쪽 · 오른쪽 두 칸 사실 비교", "「처음 → 지금」 같은 사실 (전후 비교 금지)", "간격이 이렇게 바뀌었어요"],
+    checklist: ["항목마다 체크가 그려짐", "생활 수칙 · 준비물 · 단계", "이것만 지켜요"],
+    calendar: ["날짜에 동그라미가 차례로 + 간격", "약 먹은 날 · 증상 난 날", "두드러기 난 날"],
+    route: ["점-선-점 · 탈것이 선을 따라감", "「인천 → 부산」 이동 이야기", "여기서 왔어요"],
+    quote: ["큰 따옴표 + 그대로 한 말 + 출처", "환자 · 손님이 한 말 (사실 그대로)", ""],
+    timeline: ["구간 막대가 차례로 자람", "「8개월」 「석 달」 같은 기간", "지나온 시간"],
+  };
+  // 지금 고른 시각 자료 (그림판 패널 · 대화 · 장면 컷)
+  function currentVisual() {
+    const it = find(st.sel);
+    if (!it || !st.sel) return null;
+    if (st.sel.type === "panel") return { type: "panel", it };
+    if (st.sel.type === "overlay" && (it.kind === "chat" || it.kind === "insert")) return { type: "overlay", it };
+    return null;
+  }
+  const BOARD_TABS = { motion: `자막 모션 ${Object.values(S.CAPTION_MOTIONS).filter((m) => !m.hookOnly).length}`, look: `글자 모양 ${Object.values(S.STYLE_PRESETS).filter((p) => !p.old).length}`, em: `강조 방식 ${Object.keys(S.EM_MODES).length}`, fx: `줌 · 카메라 ${Object.keys(S.EFFECTS).length}`, hook: "훅 등장 모션", trans: "화면 전환", canvas: "그림판", vlayout: "레이아웃" };
   const bd = { tab: "motion", speed: "normal", group: "전체", lgroup: "전체", cards: [], still: "", raf: 0 };
   // 글자 배경 · 스타일 고르기 카드 = scene.js 의 셀피쉬 스타일 10개 (누르면 모양 값을 한 번에, 모션 · 위치는 그대로)
   const KEEP_KEYS = ["motion", "speed", "delay", "y", "align"];
@@ -1363,6 +1402,9 @@
     const sv = scopeValues();
     const where = st.stScope === "role" ? `「${S.ROLES[st.stRole]}」 역할 자막` : st.stScope === "sel" ? (T === "head" ? "고른 훅" : "고른 자막 하나") : T === "head" ? "모든 훅" : "모든 자막";
     $("bdInfo").innerHTML = bd.tab === "fx" ? "카드를 누르면 지금 재생 위치에 그 효과가 들어가요 (노란 동그라미로 중심, 타임라인에서 길이)"
+      : bd.tab === "vlayout" ? (currentVisual() ? "고른 시각 자료를 레이아웃마다 보여 줘요. 카드를 누르면 그 레이아웃으로 바뀌어요 (자막은 얼굴을 피해 자동으로 옮겨져요)" : "그림판 · 대화 화면 · 장면 컷 하나를 고르면 그 자료로 보여 줘요 (지금은 보기 자료)")
+      : bd.tab === "canvas" ? "고른 그림판이 있으면 그 템플릿 · 테마로 바뀌고, 없으면 재생 위치에 새 그림판이 들어가요 (숫자 · 말은 영상에서 말한 것만)"
+      : bd.tab === "trans" ? "장면 컷이나 그림판을 고르면 그 「들어올 때」로 들어가요"
       : bd.tab === "look" && sv ? `카드를 누르면 <b>${where}</b>의 글자 모양(글꼴 · 배경 · 색 · 꾸밈)이 바뀌어요. 모션은 지금 것(${S.esc(S.CAPTION_MOTIONS[sv.vals.motion]?.label || "")}) 그대로`
       : !sv ? "자막을 하나 고른 뒤 다시 열어 주세요 (지금은 「선택한 자막만」인데 고른 자막이 없어요)"
       : `카드를 누르면 <b>${where}</b>에 바로 적용돼요 · 미리보기 문구: 「${S.esc(boardText().replace(/\*\*/g, ""))}」`;
@@ -1374,6 +1416,7 @@
     host.className = "bd-stage";
     host.id = id;
     host.innerHTML = `<style>${S.pageCSS(data, "/comp/", "#" + id)}</style>` + S.renderBody(data, { base: "/comp/" });
+    host.querySelectorAll("video.sf-ins").forEach((iv) => { const im = document.createElement("img"); im.id = iv.id; im.className = iv.className; im.setAttribute("style", iv.getAttribute("style") + ";object-fit:cover;filter:hue-rotate(160deg) saturate(.6)"); im.src = bd.still || ""; for (const k of ["start", "duration"]) im.dataset[k] = iv.dataset[k]; iv.replaceWith(im); });
     const v = host.querySelector("video#footage");
     if (v) {
       const img = document.createElement("img");
@@ -1419,20 +1462,29 @@
       items = keys.map((t) => ({ key: t, name: (S.PANEL_TRANS[t] || S.INSERT_TRANS[t] || t).replace(/ \(.*\)/, ""), desc: S.TRANS_INFO[t].desc, fit: S.TRANS_INFO[t].fit, L,
         data: mk({ __focusY: 960, layout: "card", panels: [{ id: "p", start: 0.7, end: L - 0.05, title: "다음 **장면**", text: "", bg: "#1f3b2d", color: "#ffffff", enter: t, exit: "cut" }] }) }));
     } else if (bd.tab === "canvas") {
-      // 그림판 요소: 반반 컷 위 패널에 얹는 것
-      const L = 3.4;
-      const base2 = { id: "p", start: 0.05, end: L, title: "", bg: "#f4f1ea", color: "#111214", enter: "cut", exit: "cut" };
-      items = [
-        { key: "callout", name: "선 그어 짚기", desc: "점 → 선 → 라벨이 차례로", fit: "혈자리 · 통증 부위 · 메뉴 재료", panel: { title: "여기를 눌러 보세요", callouts: "28,84,합곡\n72,76,곡지" } },
-        { key: "bar", name: "막대 자라기", desc: "막대가 자라 실제 값에서 멈춤", fit: "횟수 · 기간 비교 (말한 숫자만)", panel: { title: "치료 횟수", chart: "bar", chartData: "1주,2\n2주,3\n4주,5", chartUnit: "회" } },
-        { key: "gauge", name: "게이지 채우기", desc: "가로 막대가 값까지 차오름", fit: "회복 단계 · 진행 정도 (사실만)", panel: { title: "회복 단계", chart: "gauge", chartData: "지금,3", chartMax: "5", chartUnit: "/5단계" } },
-      ].map((x) => Object.assign(x, { L, data: mk({ __focusY: 450, layout: "split", panels: [Object.assign({}, base2, x.panel)] }) }));
-      // 메신저 대화: 말풍선 모션마다 카드 하나
-      for (const [ak, al] of Object.entries(S.CHAT_ANIMS)) {
-        const L2 = 4.2;
-        items.push({ key: "chat:" + ak, name: "메신저 대화 · " + al, desc: "말풍선이 차례로 쌓임 (상대 왼쪽 · 나 오른쪽)", fit: "환자 · 손님 질문 · 상담 장면", L: L2,
-          data: mk({ __focusY: 560, overlays: [{ id: "ch", kind: "chat", start: 0.05, end: L2, x: 540, y: 200, w: 900, title: "환자분", messages: SAMPLE_MSGS, showTime: true, showRead: true, bubbleAnim: ak, gap: 0.8, enter: "none" }] }) });
+      // 그림판 템플릿 7 + 대화 화면 3테마 (전체 화면 카드로 크게)
+      const L = 3.6;
+      items = Object.entries(S.TEMPLATES).filter(([k]) => k !== "none" && k !== "chat").map(([k, lab]) => ({ key: "tpl:" + k, name: lab, desc: TPL_DESC[k][0], fit: TPL_DESC[k][1], L, full: 1,
+        data: mk({ panels: [{ id: "p", start: 0.05, end: L, layout: "full", tpl: k, title: TPL_DESC[k][2] }] }) }));
+      for (const [tk, th] of Object.entries(S.CHAT_THEMES)) {
+        const L2 = 4.6;
+        items.push({ key: "chat:" + tk, name: "대화 화면 · " + th.label, desc: "실제 메신저처럼 메시지가 차례로 · 입력 중 점 · 안 읽음 1", fit: "환자 · 손님 질문 · 상담 장면", L: L2, full: 1,
+          data: mk({ panels: [{ id: "p", start: 0.05, end: L2, layout: "full", tpl: "chat", messages: SAMPLE_MSGS, theme: tk, frame: true, bubbleAnim: "typing", gap: 0.8 }] }) });
       }
+    } else if (bd.tab === "vlayout") {
+      // 지금 고른 시각 자료를 5가지 레이아웃으로 (화면 속 화면은 4곳)
+      const L = 3.4;
+      const cur = currentVisual();
+      const base0 = cur ? JSON.parse(JSON.stringify(cur.it)) : { id: "p", tpl: "quote", title: "", tplData: { text: "이제는 밤에 깨지 않고 자요", source: "환자분" } };
+      const capT = st.data.captions[0] ? String(st.data.captions[0].text) : "자막은 얼굴을 피해 자리를 옮겨요";
+      const keys = [["full"], ["splitTop"], ["splitBottom"], ["pip", "tr"], ["pip", "tl"], ["pip", "br"], ["pip", "bl"], ["float"]];
+      items = keys.map(([lk, pos]) => {
+        const v = Object.assign({}, base0, { id: "v", start: 0.05, end: L, layout: lk, pipPos: pos });
+        const isOv = cur && cur.type === "overlay";
+        return { key: lk + (pos ? ":" + pos : ""), name: S.VIS_LAYOUTS[lk].label + (pos ? " · " + S.PIP_POS[pos] : ""), desc: S.VIS_LAYOUTS[lk].desc, fit: cur ? "고른 자료로 보기" : "보기 자료 (하나를 고르면 그걸로)", L, full: 1,
+          on: cur && (cur.it.layout || "") === lk && (lk !== "pip" || (cur.it.pipPos || "tr") === pos),
+          data: mk({ captions: [{ id: "c", start: 0.05, end: L, text: capT }], panels: isOv ? [] : [v], overlays: isOv ? [v] : [] }) };
+      });
     } else if (bd.tab === "look") {
       const L = 2.6;
       items = Object.entries(S.STYLE_PRESETS).filter(([, p]) => !p.old && (bd.lgroup === "전체" || p.group === bd.lgroup)).map(([pk, p]) => {
@@ -1465,7 +1517,9 @@
       card.dataset.key = it.key;
       card.innerHTML = `<div class="bd-frame"></div>${it.on ? `<span class="badge">✓ ${bd.tab === "fx" ? "" : "지금 적용됨"}</span>` : ""}<b>${S.esc(it.name)}</b><span class="d">${S.esc(it.desc || "")}</span><span class="f">${bd.tab === "look" ? "묶음: " : "어울리는 곳: "}${S.esc(it.fit || "")}</span>`;
       const c = makeCard(i, it.data, it.L);
+      if (it.full) c.full = true;
       const fr = card.querySelector(".bd-frame");
+      if (it.full) fr.classList.add("full");
       fr.appendChild(c.host);
       card.onclick = () => applyBoard(it.key);
       grid.appendChild(card);
@@ -1475,7 +1529,7 @@
     // 카드 무대: 자막이 있는 세로 구간(CROP_H)만 잘라 크게 보여 줌
     requestAnimationFrame(() => bd.cards.forEach((c) => {
       const w = c.host.parentElement.clientWidth, sc = w / 1080;
-      const top = Math.max(0, Math.min(1920 - CROP_H, c.focusY - CROP_H / 2));
+      const top = c.full ? 0 : Math.max(0, Math.min(1920 - CROP_H, c.focusY - CROP_H / 2));
       c.host.style.transform = `translateY(${-top * sc}px) scale(${sc})`;
     }));
     const tick = (now) => {
@@ -1501,32 +1555,29 @@
       snapshot(); it.enter = key; changed(true);
       return toast(`들어올 때: ${S.esc(S.PANEL_TRANS[key] || S.INSERT_TRANS[key])}`);
     }
-    if (bd.tab === "canvas" && key.startsWith("chat:")) {
-      const anim = key.slice(5);
-      const it = find(st.sel);
-      snapshot();
-      if (it && ((st.sel.type === "overlay" && it.kind === "chat") || st.sel.type === "panel")) {
-        it.bubbleAnim = anim;
-        if (st.sel.type === "panel" && !(it.messages && it.messages.length)) it.messages = JSON.parse(JSON.stringify(SAMPLE_MSGS));
-        changed(true);
-        return toast(`말풍선 모션: ${S.esc(S.CHAT_ANIMS[anim])}`);
-      }
-      // 고른 게 없으면 재생 위치에 새 메신저 대화를 넣음
-      const D = st.data.duration || 10, s0 = Math.max(0, Math.min(st.t, D - 4.5));
-      const o = { id: uid("chat"), kind: "chat", start: r2(s0), end: r2(Math.min(D, s0 + 4.5)), title: "환자분", messages: JSON.parse(JSON.stringify(SAMPLE_MSGS)), showTime: true, bubbleAnim: anim, x: 540, y: 260, w: 900, enter: "pop" };
-      st.data.overlays.push(o);
-      st.sel = { type: "overlay", id: o.id };
-      changed(true);
-      return toast(`메신저 대화를 ${fmt(s0)}초에 넣었어요. 「선택한 것」에서 말 · 이름 · 색을 고치세요`);
+    if (bd.tab === "vlayout") {
+      const cur = currentVisual();
+      if (!cur) return toast("그림판 · 대화 화면 · 장면 컷 하나를 먼저 고르면 그 자료에 레이아웃이 들어가요");
+      const [lk, pos] = key.split(":");
+      snapshot(); cur.it.layout = lk; if (pos) cur.it.pipPos = pos; changed(true);
+      return renderBoard();
     }
     if (bd.tab === "canvas") {
+      const [kind, k] = key.split(":");
       const it = find(st.sel);
-      if (!(st.sel && st.sel.type === "panel" && it)) return toast("반반 컷 패널을 먼저 고르세요 (기본 편집 틀 → 반반 컷 → 타임라인 「틀 패널」)");
       snapshot();
-      if (key === "callout") it.callouts = it.callouts || "32,62,라벨 1\n70,48,라벨 2";
-      else { it.chart = key; it.chartData = it.chartData || "항목 1,3\n항목 2,5"; }
+      if (kind === "chat") {
+        if (it && st.sel.type === "overlay" && it.kind === "chat") { it.theme = k; changed(true); return toast(`대화 화면 테마: ${S.esc(S.CHAT_THEMES[k].label)}`); }
+        if (it && st.sel.type === "panel") { it.tpl = "chat"; it.theme = k; if (!(it.messages && it.messages.length)) it.messages = JSON.parse(JSON.stringify(SAMPLE_MSGS)); changed(true); return toast("그림판을 대화 화면으로 바꿨어요"); }
+      } else if (it && st.sel.type === "panel") { it.tpl = k; changed(true); return toast(`템플릿: ${S.esc(S.TEMPLATES[k])} — 오른쪽 「선택한 것」에서 글 · 숫자를 고치세요 (말한 것만)`); }
+      // 고른 게 없으면 재생 위치에 새 그림판 (반반 · 위 자료)
+      const D = st.data.duration || 10, s0 = Math.max(0, Math.min(st.t, D - 3.5));
+      const p = { id: uid("pn"), start: r2(s0), end: r2(Math.min(D, s0 + 3.5)), layout: "splitTop", tpl: kind === "chat" ? "chat" : k, title: kind === "chat" ? "" : TPL_DESC[k][2] };
+      if (kind === "chat") Object.assign(p, { theme: k, frame: true, messages: JSON.parse(JSON.stringify(SAMPLE_MSGS)), bubbleAnim: "typing" });
+      st.data.panels.push(p);
+      st.sel = { type: "panel", id: p.id };
       changed(true);
-      return toast("패널에 넣었어요. 오른쪽 「선택한 것」에서 위치 · 라벨 · 숫자를 고치세요 (말한 숫자만)");
+      return toast(`${fmt(s0)}초에 그림판을 넣었어요. 레이아웃은 🎬 「레이아웃」 탭에서`);
     }
     if (!scopeValues()) return toast("자막을 하나 먼저 고르세요 (또는 「전체」 · 「같은 역할」로)");
     snapshot();
@@ -1597,7 +1648,7 @@
     const D = st.data.duration || 10;
     const s0 = Math.max(0, Math.min(st.t, D - 3));
     const cap = st.data.captions.find((c) => st.t >= c.start && st.t < c.end);
-    const p = { id: uid("pn"), start: r2(s0), end: r2(Math.min(D, s0 + 3)), title: "제목을 **적어** 주세요", text: cap ? String(cap.text).replace(/\*\*/g, "") : "", enter: st.data.layout === "split" ? "slide" : "fade" };
+    const p = { id: uid("pn"), start: r2(s0), end: r2(Math.min(D, s0 + 3)), layout: st.data.layout === "card" ? "full" : "splitTop", tpl: "quote", title: "", tplData: { text: cap ? String(cap.text).replace(/\*\*/g, "") : "말을 그대로 적어요", source: "환자분" } };
     st.data.panels.push(p);
     st.sel = { type: "panel", id: p.id };
     if (!silent) changed(true);
@@ -1658,7 +1709,7 @@
       const other = (st.media.videos || []).find((v) => v !== st.data.source);
       Object.assign(o, { src: other || st.data.source, from: other ? 0 : r2(Math.min(10, Math.max(0, (st.data.duration || 12) - 4))), muted: true, enter: "fade", exit: "fade", x: 540, y: 960, end: r2(Math.min(o0 + 2, st.data.duration || o0 + 2)) });
     }
-    if (kind === "chat") Object.assign(o, { title: "환자분", messages: JSON.parse(JSON.stringify(SAMPLE_MSGS)), showTime: true, bubbleAnim: "pop", x: 540, y: 260, w: 900, enter: "pop", end: r2(Math.min(o0 + 4.5, st.data.duration || o0 + 4.5)) });
+    if (kind === "chat") Object.assign(o, { title: "환자분", messages: JSON.parse(JSON.stringify(SAMPLE_MSGS)), theme: "yellow", frame: true, layout: "splitTop", bubbleAnim: "typing", x: 540, y: 260, w: 900, enter: "auto", end: r2(Math.min(o0 + 4.5, st.data.duration || o0 + 4.5)) });
     if (kind === "sticker") {
       const img = (st.media.images || [])[0];
       Object.assign(o, { src: img || "", emoji: img ? undefined : "⭐", size: 260, x: 820, y: 980, rot: -6, idle: "float", enter: "pop", end: r2(Math.min(o0 + 2.5, st.data.duration || o0 + 2.5)) });

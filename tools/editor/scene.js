@@ -660,31 +660,8 @@
   }
 
   // ── 정적 HTML (빌드: index.html 본문 / 편집기: 무대 innerHTML) ──
-  // ── 메신저 대화 (특정 앱을 흉내 내지 않는 일반 메신저 모양) ──
-  // o.messages = [{ from: "them" | "me", text, at }] · o.title(상대 이름, 기본 「환자분」) · o.hideName(이름 → 첫 글자 + OO)
-  // o.colors = { bg, them, me, text } · o.showTime · o.showRead · o.bubbleAnim(pop · slide · rise · typing) · o.gap(말풍선 사이 초)
-  const CHAT_ANIMS = { pop: "톡 튀어나옴", slide: "옆에서 쓱", rise: "아래에서 올라옴", typing: "입력 중 점 → 말풍선" };
-  const CHAT_COLORS = { bg: "#b9cbd8", them: "#ffffff", me: "#fff1a8", text: "#111111" };
-  function chatHTML(o, width) {
-    const c = Object.assign({}, CHAT_COLORS, o.colors || {});
-    const msgs = Array.isArray(o.messages) ? o.messages : [];
-    let title = String(o.title || "환자분");
-    if (o.hideName && title) title = title[0] + "OO";
-    // **강조** → 노랑 형광
-    const hl = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<em class="sf-chl">$1</em>').replace(/\n/g, "<br>");
-    const body = msgs.map((m, i) => {
-      const me = m.from === "me";
-      const meta = (o.showRead && me ? `<span class="sf-read">읽음</span>` : "") + (o.showTime && m.at ? `<span class="sf-at">${esc(m.at)}</span>` : "");
-      return `<div class="sf-msg ${me ? "sf-me" : "sf-them"}" data-i="${i}">` + (me ? "" : `<span class="sf-mav"></span>`) +
-        `<div class="sf-mcol">${me ? "" : `<span class="sf-mname">${esc(title)}</span>`}<div class="sf-mrow">${me && meta ? `<span class="sf-meta">${meta}</span>` : ""}` +
-        `<div class="sf-bub" style="background:${esc(me ? c.me : c.them)};color:${esc(c.text)}">${hl(m.text)}</div>${!me && meta ? `<span class="sf-meta">${meta}</span>` : ""}</div></div>` +
-        `<div class="sf-dots" style="background:${esc(me ? c.me : c.them)}"><i></i><i></i><i></i></div></div>`;
-    }).join("");
-    return `<div class="sf-chat" style="width:${width || o.w || 900}px;background:${esc(c.bg)}"><div class="sf-chat-top"><span class="sf-cav"></span><b>${esc(title)}</b></div><div class="sf-chat-body">${body}</div></div>`;
-  }
-
   function overlayInner(o, base) {
-    if (o.kind === "chat") return chatHTML(o);
+    if (o.kind === "chat") return chatHTML(o, { w: o.w || 900, h: o.h || 1180 });
     const s = o.size || 200;
     const B = base || "";
     if (o.kind === "sticker") {
@@ -811,13 +788,328 @@
   function overlayBox(o) {
     // 위 글자는 가운데 기준 자동 너비, 나머지는 정사각
     if (isCentered(o.kind)) return `left:${o.x}px;top:${o.y}px;transform:translate(-50%,-50%)`;
-    if (o.kind === "insert") return `left:0;top:0;width:1080px;height:1920px`;
+    if (o.kind === "insert") {
+      if (!VIS_LAYOUTS[o.layout] || o.layout === "full" || o.layout === "pip") return `left:0;top:0;width:1080px;height:1920px`;
+      const b = visSlot(o.layout, o.pipPos).box;
+      return `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px${o.layout === "float" ? ";border-radius:40px" : ""}`;
+    }
     if (o.kind === "chat") { const w = o.w || 900; return `left:${r2((o.x ?? 540) - w / 2)}px;top:${o.y ?? 300}px;width:${w}px`; }
     if (o.kind === "aside" || o.kind === "wflist" || o.kind === "dm") return `left:0;top:0;width:1080px;height:${o.h || 960}px;overflow:hidden`;
     if (o.kind === "screen") return `left:0;top:0;width:1080px;height:1920px`;
     if (o.kind === "card") { const w = o.w || 720; return `left:${r2(o.x - w / 2)}px;top:${o.y}px;width:${w}px`; }
     const s = o.size || 200;
     return `left:${r2(o.x - s / 2)}px;top:${r2(o.y - s / 2)}px;width:${s}px;height:${s}px`;
+  }
+
+  // ══ 시각 자료 (그림판 · 대화 화면 · 장면 컷) — 자료마다 레이아웃 ══
+  const VIS_LAYOUTS = {
+    full: { label: "전체 화면 카드", desc: "영상을 가리고 자료만 (1.5~3초)" },
+    splitTop: { label: "반반 · 위 자료", desc: "위 절반 자료 · 아래 얼굴" },
+    splitBottom: { label: "반반 · 아래 자료", desc: "위 얼굴 · 아래 절반 자료" },
+    pip: { label: "화면 속 화면", desc: "큰 자료 + 얼굴 동그라미" },
+    float: { label: "떠 있는 카드", desc: "얼굴 위에 카드 · 뒤 영상 어둡게" },
+  };
+  const PIP_POS = { tr: "오른쪽 위", tl: "왼쪽 위", br: "오른쪽 아래", bl: "왼쪽 아래" };
+  // 자리: box = 자료 영역(화면 좌표), c = 내용 영역(box 안 좌표), capY = 이 자료가 있는 동안 자막 위치, face = 얼굴 처리
+  // 인스타 가림(위 약 220 · 아래 약 380)을 피해 내용을 둔다
+  function visSlot(layout, pos) {
+    const P = pos || "tr";
+    switch (layout) {
+      case "full": return { box: { x: 0, y: 0, w: 1080, h: 1920 }, c: { x: 70, y: 250, w: 940, h: 1030 }, capY: 1330 };
+      case "splitBottom": return { box: { x: 0, y: 960, w: 1080, h: 960 }, c: { x: 70, y: 175, w: 940, h: 400 }, capY: 978 };
+      case "pip": {
+        const top = P === "tr" || P === "tl";
+        const cx = P === "tr" || P === "br" ? 845 : 235, cy = top ? 430 : 1200;
+        return { box: { x: 0, y: 0, w: 1080, h: 1920 }, c: top ? { x: 70, y: 650, w: 940, h: 640 } : { x: 70, y: 250, w: 940, h: 740 }, capY: top ? 1330 : 1420, pip: { cx, cy, r: 175 } };
+      }
+      case "float": return { box: { x: 50, y: 330, w: 980, h: 900 }, c: { x: 50, y: 56, w: 880, h: 840 }, capY: 1330 };
+      default: return { box: { x: 0, y: 0, w: 1080, h: 900 }, c: { x: 70, y: 210, w: 940, h: 640 }, capY: 925 };
+    }
+  }
+  // 그림판 패널의 레이아웃 (예전 edit.json: 전체 틀이 card 면 full, 아니면 위 자료)
+  const visLayoutOf = (o, d) => (VIS_LAYOUTS[o.layout] ? o.layout : d && d.layout === "card" ? "full" : "splitTop");
+  // 이 자막 시각에 화면을 차지한 시각 자료 (자막 자리 자동 조정용)
+  function visualsOf(d) {
+    const out = [];
+    for (const pn of d.panels || []) out.push({ o: pn, layout: visLayoutOf(pn, d) });
+    for (const o of d.overlays || []) if ((o.kind === "chat" || o.kind === "insert") && VIS_LAYOUTS[o.layout] && !(o.kind === "insert" && o.layout === "full")) out.push({ o, layout: o.layout });
+    return out;
+  }
+  function capYFor(c, d, y0) {
+    const mid = (c.start + c.end) / 2;
+    const v = visualsOf(d).find((x) => mid >= x.o.start && mid < x.o.end);
+    return v ? visSlot(v.layout, v.o.pipPos).capY : y0;
+  }
+
+  // ── 아이콘 (직접 그린 SVG, 선 굵기 통일) ──
+  const ICON = {
+    back: '<svg viewBox="0 0 24 24"><path d="M15 4 L7 12 L15 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    search: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M15.5 15.5 L21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    menu: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    smile: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="10" r="1.3" fill="currentColor"/><path d="M8.5 14.5c1.8 2 5.2 2 7 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    send: '<svg viewBox="0 0 24 24"><path d="M4 12 L20 4 L14 20 L11.5 13 Z" fill="currentColor"/></svg>',
+    person: '<svg viewBox="0 0 40 40"><circle cx="20" cy="15" r="7.5" fill="#ffffff"/><path d="M6 36c1.5-8 7.5-12 14-12s12.5 4 14 12z" fill="#ffffff"/></svg>',
+    signal: '<svg viewBox="0 0 28 20"><rect x="1" y="13" width="4.5" height="6" rx="1" fill="currentColor"/><rect x="8" y="9" width="4.5" height="10" rx="1" fill="currentColor"/><rect x="15" y="5" width="4.5" height="14" rx="1" fill="currentColor"/><rect x="22" y="1" width="4.5" height="18" rx="1" fill="currentColor"/></svg>',
+    wifi: '<svg viewBox="0 0 26 20"><path d="M13 18.5 L9.6 14.6a5 5 0 0 1 6.8 0z" fill="currentColor"/><path d="M5.5 10.8a10.6 10.6 0 0 1 15 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M1.8 6.9a16 16 0 0 1 22.4 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    battery: '<svg viewBox="0 0 40 20"><rect x="1" y="2" width="33" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="5" width="24" height="10" rx="2" fill="currentColor"/><rect x="36" y="7" width="3" height="6" rx="1.2" fill="currentColor"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    quote: '<svg viewBox="0 0 48 36"><path d="M2 34V20C2 9 8 3 18 1l2 5c-6 2-9 6-9 11h8v17zm26 0V20C28 9 34 3 44 1l2 5c-6 2-9 6-9 11h8v17z" fill="currentColor"/></svg>',
+    train: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 10h14" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="13.5" r="1.2" fill="currentColor"/><circle cx="15" cy="13.5" r="1.2" fill="currentColor"/><path d="M8 17l-2 4M16 17l2 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    car: '<svg viewBox="0 0 24 24"><path d="M4 15v-3l2-5h12l2 5v3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="8" cy="16.5" r="2" fill="currentColor"/><circle cx="16" cy="16.5" r="2" fill="currentColor"/></svg>',
+    bus: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 11h16M8 18v3M16 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    walk: '<svg viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="2" fill="currentColor"/><path d="M11 9l-2 5 3 2 1 5M11 9l3 2 3 1M9 14l-3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plane: '<svg viewBox="0 0 24 24"><path d="M2 13l8-2 4-8 2 1-2 7 6 1 1 2-7 1-3 6-2-1 1-5-7-1z" fill="currentColor"/></svg>',
+  };
+  const ROUTE_MODES = { train: "기차", car: "자동차", bus: "버스", walk: "걸어서", plane: "비행기" };
+
+  // ── 그림판 템플릿 ──
+  const TEMPLATES = { none: "없음 (제목 · 글만)", bigNumber: "큰 숫자 카드", compare: "사실 비교 카드", checklist: "체크리스트", calendar: "달력", route: "경로 · 지도", quote: "인용 카드", timeline: "타임라인", chat: "대화 화면" };
+  const TPL_SAMPLE = {
+    bigNumber: { number: "8", unit: "개월", desc: "두드러기와 함께한 시간" },
+    compare: { leftLabel: "처음", leftValue: "3일에 한 번", rightLabel: "지금", rightValue: "2일에 한 번" },
+    checklist: { items: "약 먹은 날짜 적기\n자극적인 음식 줄이기\n잠 7시간 지키기" },
+    calendar: { year: "2026", month: "11", marks: "3,6,8,10" },
+    route: { from: "인천", to: "부산", mode: "train" },
+    quote: { text: "이제는 밤에 깨지 않고 자요", source: "환자분" },
+    timeline: { items: "두드러기,8,8개월\n한의원 치료,3,석 달" },
+    chat: { theme: "yellow", frame: true },
+  };
+  const tdOf = (pn) => Object.assign({}, TPL_SAMPLE[pn.tpl] || {}, pn.tplData || {});
+  function tplHTML(pn, c, tok) {
+    const t = pn.tpl, td = tdOf(pn), W = c.w;
+    const card = (inner, cls) => `<div class="sf-tcard ${cls || ""}">${inner}</div>`;
+    if (t === "bigNumber") {
+      return `<div class="sf-t sf-tnum">` + card(`<div class="sf-tn"><span class="sf-tnv" data-v="${esc(td.number)}">${esc(td.number)}</span><span class="sf-tnu">${esc(td.unit || "")}</span></div><i class="sf-tbar"></i>` + (td.desc ? `<div class="sf-tdesc">${esc(td.desc)}</div>` : "")) + `</div>`;
+    }
+    if (t === "compare") {
+      return `<div class="sf-t sf-tcmp">` + card(`<div class="sf-tlab">${esc(td.leftLabel || "")}</div><div class="sf-tval">${esc(td.leftValue || "")}</div>`, "sf-tc1") +
+        `<div class="sf-tarrow">${ICON.arrow}</div>` + card(`<div class="sf-tlab">${esc(td.rightLabel || "")}</div><div class="sf-tval">${esc(td.rightValue || "")}</div>`, "sf-tc2") + `</div>`;
+    }
+    if (t === "checklist") {
+      const items = String(td.items || "").split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 5);
+      const rowH = Math.max(66, Math.min(112, Math.floor((c.h - 60) / Math.max(1, items.length))));
+      return `<div class="sf-t sf-tchk${rowH < 86 ? " compact" : ""}">` + card(items.map((x, i) => `<div class="sf-tck" data-i="${i}" style="height:${rowH}px"><svg class="sf-tbox" viewBox="0 0 64 64"><rect class="sf-tboxr" x="3" y="3" width="58" height="58" rx="16"/><path class="sf-tchkp" pathLength="100" d="M16 33 L28 45 L49 21"/></svg><span>${esc(x)}</span></div>`).join("")) + `</div>`;
+    }
+    if (t === "calendar") {
+      const y = parseInt(td.year, 10) || 2026, m = Math.min(12, Math.max(1, parseInt(td.month, 10) || 1));
+      const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const rows = Math.ceil((first + days) / 7);
+      const marks = String(td.marks || "").split(/[,\s]+/).map((x) => parseInt(x, 10)).filter((x) => x >= 1 && x <= days);
+      const cellH = Math.max(62, Math.min(96, Math.floor((c.h - 300) / rows)));
+      const wk = ["일", "월", "화", "수", "목", "금", "토"].map((w, i) => `<span class="${i === 0 ? "sun" : ""}">${w}</span>`).join("");
+      let cells = "";
+      for (let i = 0; i < rows * 7; i++) {
+        const dd = i - first + 1;
+        const mi = marks.indexOf(dd);
+        cells += `<span class="sf-tday${dd < 1 || dd > days ? " out" : ""}${mi >= 0 ? " mk" : ""}${i % 7 === 0 ? " sun" : ""}" style="height:${cellH}px">` +
+          (dd >= 1 && dd <= days ? `${mi >= 0 ? `<svg class="sf-tring" viewBox="0 0 100 100"><circle pathLength="100" cx="50" cy="50" r="42" data-i="${mi}"/></svg>` : ""}<b>${dd}</b>` : "") + `</span>`;
+      }
+      const gaps = marks.slice(1).map((x, i) => x - marks[i]);
+      return `<div class="sf-t sf-tcal">` + card(`<div class="sf-tcalh"><b>${m}월</b><span>${y}</span></div><div class="sf-twk">${wk}</div><div class="sf-tgrid">${cells}</div>`) +
+        (gaps.length ? `<div class="sf-tgaps"><span class="sf-tgl">간격</span>${gaps.map((g, i) => `<span class="sf-tgap" data-i="${i}">${g}일</span>`).join("")}</div>` : "") + `</div>`;
+    }
+    if (t === "route") {
+      const w = W - 120, h = 300;
+      const p0 = [70, 230], p2 = [w - 70, 230], p1 = [w / 2, 30];
+      const path = `M${p0[0]} ${p0[1]} Q${p1[0]} ${p1[1]} ${p2[0]} ${p2[1]}`;
+      return `<div class="sf-t sf-troute">` + card(`<svg class="sf-tmap" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path class="sf-tpath0" d="${path}"/><path class="sf-tpath" pathLength="100" d="${path}"/>` +
+        `<circle class="sf-tdot0" cx="${p0[0]}" cy="${p0[1]}" r="22"/><circle class="sf-tdot1" cx="${p2[0]}" cy="${p2[1]}" r="22"/></svg>` +
+        `<span class="sf-tveh" data-p="${p0.join(",")},${p1.join(",")},${p2.join(",")}" style="left:${p0[0] + 60}px;top:${p0[1] + 46}px">${ICON[td.mode] || ICON.train}</span>` +
+        `<div class="sf-tends"><div><span>출발</span><b>${esc(td.from || "")}</b></div><div><span>도착</span><b>${esc(td.to || "")}</b></div></div>`) + `</div>`;
+    }
+    if (t === "quote") {
+      return `<div class="sf-t sf-tquote">` + card(`<span class="sf-tqm">${ICON.quote}</span><div class="sf-tqt">${esc(td.text || "")}</div><div class="sf-tqs">— ${esc(td.source || "환자분")}</div>`) + `</div>`;
+    }
+    if (t === "timeline") {
+      const rows = String(td.items || "").split("\n").map((l) => l.split(",").map((x) => x.trim())).filter((a) => a[0]).slice(0, 4);
+      const max = Math.max(1, ...rows.map((r) => parseFloat(r[1]) || 0));
+      return `<div class="sf-t sf-ttl">` + card(rows.map((r, i) => `<div class="sf-trow"><div class="sf-trh"><b>${esc(r[0])}</b><span>${esc(r[2] || r[1] || "")}</span></div><div class="sf-ttrack"><i class="sf-tfill" data-i="${i}" style="width:${r2(Math.max(0.06, (parseFloat(r[1]) || 0) / max) * 100)}%"></i></div></div>`).join("")) + `</div>`;
+    }
+    if (t === "chat") return chatHTML(Object.assign({}, td, pn, { messages: pn.messages, title: pn.chatTitle || pn.title || "환자분" }), { w: c.w, h: c.h });
+    return "";
+  }
+
+  // ── 메신저 v2: 실제 앱 화면 구조 (앱 로고 · 이름 없음) ──
+  const CHAT_THEMES = {
+    yellow: { label: "노랑 말풍선", bg: "#b2c7da", me: "#fee500", meText: "#191919", them: "#ffffff", themText: "#191919", head: "#b2c7da", headText: "#191919", unread: "#f2b705", chip: "rgba(0,0,0,.18)", chipText: "#ffffff", avatar: true, tail: "top" },
+    blue: { label: "파랑 말풍선", bg: "#ffffff", me: "#0a84ff", meText: "#ffffff", them: "#e9e9eb", themText: "#111111", head: "#f6f6f7", headText: "#111111", unread: "#0a84ff", chip: "rgba(0,0,0,0)", chipText: "#8a8a8e", avatar: false, tail: "bottom" },
+    white: { label: "흰 말풍선", bg: "#eef0f3", me: "#ffffff", meText: "#111111", them: "#ffffff", themText: "#111111", head: "#ffffff", headText: "#111111", unread: "#e03131", chip: "rgba(0,0,0,.08)", chipText: "#5a6068", avatar: true, tail: "top", meBorder: "#cfd4da" },
+  };
+  const CHAT_ANIMS = { pop: "톡 튀어나옴", slide: "옆에서 쓱", rise: "아래에서 올라옴", typing: "입력 중 점 → 말풍선" };
+  const CHAT_COLORS = { bg: "#b2c7da", them: "#ffffff", me: "#fee500", text: "#191919" };
+  // o: messages · title · hideName · theme · frame · showTime · showRead · colors · date
+  function chatHTML(o, size) {
+    const th = Object.assign({}, CHAT_THEMES[o.theme] || CHAT_THEMES.yellow);
+    const cc = o.colors || {};
+    if (cc.bg) th.bg = cc.bg;
+    if (cc.me) th.me = cc.me;
+    if (cc.them) th.them = cc.them;
+    const msgs = Array.isArray(o.messages) ? o.messages : [];
+    let title = String(o.title || "환자분");
+    if (o.hideName && title) title = title[0] + "OO";
+    const hl = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<em class="sf-chl">$1</em>').replace(/\n/g, "<br>");
+    const frame = o.frame !== false;
+    const W = (size && size.w) || o.w || 900, H = (size && size.h) || o.h || 1180;
+    const showTime = o.showTime !== false, showRead = o.showRead !== false;
+    const body = msgs.map((m, i) => {
+      const me = m.from === "me";
+      const meta = `<span class="sf-cmeta">${me && showRead ? `<b class="sf-cun" style="color:${th.unread}">1</b>` : ""}${showTime && m.at ? `<i>${esc(m.at)}</i>` : ""}</span>`;
+      const bub = `<div class="sf-cbub ${th.tail === "bottom" ? "tb" : "tt"}" style="background:${me ? th.me : th.them};color:${me ? th.meText : th.themText}${me && th.meBorder ? `;box-shadow:inset 0 0 0 2px ${th.meBorder}` : ""};--tail:${me ? th.me : th.them}">${hl(m.text)}</div>`;
+      const typing = !me ? `<div class="sf-cm sf-ctyp" data-for="${i}"><div class="sf-crow">${th.avatar ? `<span class="sf-cav"></span>` : ""}<div class="sf-cbub ${th.tail === "bottom" ? "tb" : "tt"} sf-cdots" style="background:${th.them};--tail:${th.them}"><i></i><i></i><i></i></div></div></div>` : "";
+      return typing + `<div class="sf-cm ${me ? "me" : "them"}" data-i="${i}"><div class="sf-crow">` +
+        (me ? meta + bub : (th.avatar ? `<span class="sf-cav">${ICON.person}</span>` : "") + `<div class="sf-ccol">${th.avatar ? `<span class="sf-cname">${esc(title)}</span>` : ""}<div class="sf-cline">${bub}${meta}</div></div>`) + `</div></div>`;
+    }).join("");
+    const date = o.date || "2026년 11월 25일 화요일";
+    return `<div class="sf-chat2${frame ? " framed" : ""}" style="width:${W}px;height:${H}px;--cbg:${th.bg};--chead:${th.head};--cht:${th.headText};--cchip:${th.chip};--cchipt:${th.chipText}">` +
+      `<div class="sf-cscr">` +
+      `<div class="sf-cstat"><b>9:41</b><span class="sf-cico">${ICON.signal}${ICON.wifi}${ICON.battery}</span></div>` +
+      `<div class="sf-chead"><span class="sf-cbk">${ICON.back}</span><b>${esc(title)}</b><span class="sf-chic">${ICON.search}${ICON.menu}</span></div>` +
+      `<div class="sf-cbody"><div class="sf-cdate"><span>${esc(date)}</span></div>${body}</div>` +
+      `<div class="sf-cin"><span class="sf-cplus">${ICON.plus}</span><span class="sf-cfield">메시지 입력</span><span class="sf-cemo">${ICON.smile}</span><span class="sf-csend" style="background:${th.me};color:${th.meText}">${ICON.send}</span></div>` +
+      `</div></div>`;
+  }
+
+  // 자료 하나를 그리는 상자 (패널 · 대화 · 장면 컷 공용)
+  function visualHTML(pn, d, base, kind) {
+    const L = visLayoutOf(pn, d);
+    const sl = visSlot(L, pn.pipPos);
+    const b = sl.box, c = sl.c;
+    const tok = { acc: Object.assign({}, BASE.cap, d.style.cap).emColor || "#e9ed12" };
+    const bg = pn.bg || (L === "float" ? "#ffffff" : "#f3f4f6");
+    const ink = pn.color || "#111214";
+    let inner = "";
+    if (kind === "chat") inner = chatHTML(pn, { w: c.w, h: c.h });
+    else {
+      const hasTpl = pn.tpl && pn.tpl !== "none";
+      inner = (pn.title && pn.tpl !== "chat" ? `<div class="sf-vt">${rich(pn.title)}</div>` : "") +
+        (pn.image ? `<img class="sf-pimg" src="${esc(base + pn.image)}" alt="">` : "") +
+        (pn.text ? `<div class="sf-vx">${rich(pn.text)}</div>` : "") +
+        (hasTpl ? tplHTML(pn, { w: c.w, h: c.h - (pn.title && pn.tpl !== "chat" ? 110 : 0) - (pn.text ? 80 : 0) }, tok) : "") +
+        (!hasTpl && Array.isArray(pn.messages) && pn.messages.length ? chatHTML(Object.assign({}, pn, { title: pn.chatTitle || "환자분" }), { w: c.w, h: c.h - 120 }) : "") +
+        chartHTML(pn) + calloutHTML(pn, b.h);
+    }
+    return `<div id="${CSS_ID(pn.id)}" class="clip sf-panel sf-vis lay-${L}" data-start="${r2(pn.start)}" data-duration="${r2(pn.end - pn.start)}" data-track-index="3" ` +
+      `style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;background:${kind === "chat" && L !== "float" ? "#eef0f3" : esc(bg)};color:${esc(ink)};--acc:${esc(tok.acc)};--acct:${isLight(tok.acc) ? "#111111" : "#ffffff"}">` +
+      `<div class="sf-pin" style="left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px">${inner}</div></div>` + transLayer(pn);
+  }
+
+  // 얼굴(촬영본 층) 처리: 반반이면 옮기고, 화면 속 화면이면 동그라미로 줄이고, 떠 있는 카드면 어둡게
+  function faceFor(tl, q, o, L, s, e) {
+    const lay = q("#sf-lay"), ring = q("#sf-ring"), dim = q("#sf-dim");
+    if (!lay) return;
+    const out = Math.max(s + 0.4, e - 0.3);
+    const FY = 760; // 원본에서 얼굴이 있는 높이
+    if (L === "splitTop" || L === "splitBottom") {
+      const shift = o.shift ?? (L === "splitTop" ? 620 : -300);
+      tl.set(lay, { y: 0 }, s);
+      tl.to(lay, { y: shift, duration: 0.35, ease: "power3.inOut" }, s);
+      tl.to(lay, { y: 0, duration: 0.3, ease: "power3.inOut" }, out);
+    } else if (L === "pip") {
+      const sl = visSlot("pip", o.pipPos).pip;
+      const R0 = 520, k = sl.r / R0;
+      const tx = r2(sl.cx - 540 * k), ty = r2(sl.cy - FY * k);
+      tl.set(lay, { zIndex: 15, clipPath: `circle(2300px at 540px ${FY}px)`, x: 0, y: 0, scale: 1 }, s);
+      tl.to(lay, { x: tx, y: ty, scale: k, clipPath: `circle(${R0}px at 540px ${FY}px)`, duration: 0.45, ease: "power3.inOut" }, s);
+      tl.to(lay, { x: 0, y: 0, scale: 1, clipPath: `circle(2300px at 540px ${FY}px)`, duration: 0.35, ease: "power3.inOut" }, out);
+      tl.set(lay, { zIndex: 0, clipPath: "none" }, out + 0.36);
+      if (ring) {
+        tl.set(ring, { left: sl.cx - sl.r - 8, top: sl.cy - sl.r - 8, width: sl.r * 2 + 16, height: sl.r * 2 + 16, opacity: 0 }, s);
+        tl.to(ring, { opacity: 1, duration: 0.2 }, s + 0.4);
+        tl.to(ring, { opacity: 0, duration: 0.12 }, out);
+      }
+    } else if (L === "float" && dim) {
+      tl.set(dim, { opacity: 0 }, s);
+      tl.to(dim, { opacity: 0.55, duration: 0.3 }, s);
+      tl.to(dim, { opacity: 0, duration: 0.3 }, out);
+    }
+  }
+  // 자료 상자 등장 · 퇴장 (레이아웃마다)
+  function visEnter(tl, el, L, s, e, tin) {
+    const out = Math.max(s + 0.4, e - 0.3);
+    const H = L === "splitTop" ? 900 : 960;
+    if (tin === "cut" || tin === "colorWipe" || tin === "lightLeak") { if (tin === "lightLeak") tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3 }, s); return; }
+    if (L === "splitTop") { tl.fromTo(el, { y: -H }, { y: 0, duration: 0.38, ease: "power3.out" }, s); tl.to(el, { y: -H, duration: 0.3, ease: "power3.in" }, out); }
+    else if (L === "splitBottom") { tl.fromTo(el, { y: H }, { y: 0, duration: 0.38, ease: "power3.out" }, s); tl.to(el, { y: H, duration: 0.3, ease: "power3.in" }, out); }
+    else if (L === "float") { tl.fromTo(el, { scale: 0.92, opacity: 0, y: 40 }, { scale: 1, opacity: 1, y: 0, duration: 0.34, ease: "back.out(1.6)" }, s); tl.to(el, { scale: 0.95, opacity: 0, duration: 0.25, ease: "power2.in" }, out + 0.05); }
+    else { tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, s); tl.to(el, { opacity: 0, duration: 0.25 }, out + 0.05); }
+  }
+  // 템플릿 · 대화 움직임 (자료가 열린 뒤 차례로)
+  function tplAnim(tl, host, pn, s) {
+    if (!host) return;
+    const one = (sel) => host.querySelector(sel), all = (sel) => Array.from(host.querySelectorAll(sel));
+    const kids = one(".sf-pin") ? Array.from(one(".sf-pin").children) : [];
+    kids.forEach((k, i) => tl.fromTo(k, { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, s + 0.15 + i * 0.12));
+    const t0 = s + 0.45;
+    const nv = one(".sf-tnv");
+    if (nv) {
+      const raw = nv.dataset.v || nv.textContent, target = parseFloat(String(raw).replace(/,/g, "")) || 0, dec = (String(raw).split(".")[1] || "").length;
+      const o2 = { v: 0 };
+      tl.fromTo(o2, { v: 0 }, { v: target, duration: 0.9, ease: "power3.out", onUpdate: () => { nv.textContent = raw.includes(",") ? Math.round(o2.v).toLocaleString("en-US") : o2.v.toFixed(dec); }, onComplete: () => { nv.textContent = raw; } }, t0);
+      const bar = one(".sf-tbar");
+      if (bar) tl.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, t0 + 0.3);
+    }
+    if (one(".sf-tcmp")) {
+      tl.fromTo(one(".sf-tc1"), { x: -40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, t0);
+      tl.fromTo(one(".sf-tarrow"), { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2.4)" }, t0 + 0.3);
+      tl.fromTo(one(".sf-tc2"), { x: 40, opacity: 0 }, { x: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, t0 + 0.5);
+    }
+    all(".sf-tck").forEach((r, i) => {
+      const t = t0 + i * 0.35;
+      tl.fromTo(r, { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, t);
+      const rect = r.querySelector(".sf-tboxr"), p = r.querySelector(".sf-tchkp");
+      if (rect) tl.fromTo(rect, { attr: { "fill-opacity": 0 } }, { attr: { "fill-opacity": 1 }, duration: 0.15 }, t + 0.2);
+      if (p) tl.fromTo(p, { attr: { "stroke-dashoffset": 100 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out" }, t + 0.25);
+    });
+    all(".sf-tring circle").forEach((c) => { const i = +c.dataset.i; tl.fromTo(c, { attr: { "stroke-dashoffset": 100 } }, { attr: { "stroke-dashoffset": 0 }, duration: 0.35, ease: "power2.inOut" }, t0 + i * 0.35); });
+    all(".sf-tgap").forEach((g, i) => tl.fromTo(g, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.2, ease: "back.out(2)" }, t0 + (i + 1) * 0.35 + 0.2));
+    const path = one(".sf-tpath");
+    if (path) {
+      tl.fromTo(path, { attr: { "stroke-dashoffset": 100 } }, { attr: { "stroke-dashoffset": 0 }, duration: 1.0, ease: "power1.inOut" }, t0 + 0.2);
+      const veh = one(".sf-tveh");
+      if (veh) {
+        // 탈것이 곡선을 따라감: 2차 곡선 위 점 12개를 정해 놓고 차례로 (무작위 없음)
+        const p = veh.dataset.p.split(",").map(Number);
+        const pts = Array.from({ length: 12 }, (_, i) => { const u = (i + 1) / 12, a = (1 - u) * (1 - u), b2 = 2 * (1 - u) * u, cc = u * u; return { x: a * p[0] + b2 * p[2] + cc * p[4], y: a * p[1] + b2 * p[3] + cc * p[5] }; });
+        tl.set(veh, { x: 0, y: 0 }, s);
+        tl.to(veh, { keyframes: pts.map((pt) => ({ x: r2(pt.x - p[0]), y: r2(pt.y - p[1]), duration: 1.0 / 12, ease: "none" })) }, t0 + 0.2);
+      }
+      all(".sf-tends > div").forEach((x, i) => tl.fromTo(x, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.25, ease: "back.out(2)" }, t0 + i * 1.0));
+    }
+    const qm = one(".sf-tqm");
+    if (qm) tl.fromTo(qm, { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2.4)" }, t0);
+    all(".sf-tfill").forEach((f, i) => tl.fromTo(f, { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, t0 + i * 0.3));
+    chatAnim(tl, host, pn, t0 - 0.1);
+  }
+  // 대화: 메시지가 차례로 올라오며 위로 밀림(아래 정렬 + 높이 자람) · 입력 중 점 · 읽음 1 사라짐
+  function chatAnim(tl, root, o, s) {
+    const box = root && root.querySelector(".sf-chat2");
+    if (!box) return;
+    const anim = o.bubbleAnim || "pop";
+    const gap = Number(o.gap) || 0.9;
+    const msgs = Array.from(box.querySelectorAll(".sf-cm:not(.sf-ctyp)"));
+    msgs.forEach((m, i) => {
+      const me = m.classList.contains("me");
+      const md = (o.messages || [])[i] || {};
+      let t = s + 0.3 + (md.t != null ? Number(md.t) : i * gap);
+      const typ = box.querySelector('.sf-ctyp[data-for="' + i + '"]');
+      if (typ) {
+        tl.set(typ, { height: 0, opacity: 0 }, s);
+        if (anim === "typing") {
+          tl.to(typ, { height: "auto", opacity: 1, duration: 0.18, ease: "power2.out" }, t);
+          Array.from(typ.querySelectorAll(".sf-cdots i")).forEach((dt, j) => tl.fromTo(dt, { y: 0 }, { y: -8, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, t + 0.12 + j * 0.08));
+          tl.to(typ, { height: 0, opacity: 0, duration: 0.12 }, t + 0.55);
+          t += 0.6;
+        }
+      }
+      const bub = m.querySelector(".sf-crow");
+      tl.fromTo(m, { height: 0, opacity: 0 }, { height: "auto", opacity: 1, duration: 0.26, ease: "power2.out" }, t);
+      const from = anim === "slide" ? { x: me ? 30 : -30 } : anim === "rise" ? { y: 30 } : { scale: 0.7, transformOrigin: me ? "100% 100%" : "0% 0%" };
+      const to = anim === "slide" ? { x: 0 } : anim === "rise" ? { y: 0 } : { scale: 1 };
+      if (bub) tl.fromTo(bub, from, Object.assign({ duration: 0.28, ease: anim === "pop" || anim === "typing" ? "back.out(2)" : "power3.out" }, to), t);
+      const un = m.querySelector(".sf-cun");
+      if (un) tl.fromTo(un, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, t + 1.1);
+    });
   }
 
   // 전환 띠 (색면 와이프 · 빛 띠): 장면 컷 · 패널 옆에 두는 시간 없는 요소 (평소엔 화면 밖)
@@ -866,6 +1158,7 @@
     const list = d.overlays.map((o, i) => [o, i]).sort((a, b) => order(a[0]) - order(b[0]) || a[1] - b[1]).map((x) => x[0]);
     const ov = list
       .map((o) => {
+        if (o.kind === "chat" && VIS_LAYOUTS[o.layout]) return visualHTML(o, d, base, "chat").replace('class="clip sf-panel sf-vis', 'class="clip sf-ov sf-vis');
         if (o.kind === "insert") {
           // 장면 컷: 다른 영상을 화면 전체로 덮음. from = 그 영상의 몇 초부터. 소리는 기본 끔(아바타 목소리는 계속)
           const muted = o.muted !== false;
@@ -884,7 +1177,7 @@
         const v = capValues(c, d);
         const m = v.motion;
         const tr = v.align === "left" ? "none" : v.align === "right" ? "translateX(-100%)" : "translateX(-50%)";
-        return `<div id="${CSS_ID(c.id)}" class="clip sf-cap sf-mo-${m}" data-start="${r2(c.start)}" data-duration="${r2(c.end - c.start)}" data-track-index="5" style="left:${c.x ?? 540}px;top:${v.y}px;transform:${tr};font-size:${capSize(c, v)}px"><span class="sf-m"><span class="sf-cl">${splitRich(capText(c, v), { chars: !!CHAR_MOTIONS[m], karaoke: m === "karaoke" || m === "outlineFill", marker: m === "marker", num: m === "numberRoll", tiers: v.fx === "twoTier", swap: m === "swap", emDeco: v.emMode })}</span></span></div>`;
+        return `<div id="${CSS_ID(c.id)}" class="clip sf-cap sf-mo-${m}" data-start="${r2(c.start)}" data-duration="${r2(c.end - c.start)}" data-track-index="5" style="left:${c.x ?? 540}px;top:${capYFor(c, d, v.y)}px;transform:${tr};font-size:${capSize(c, v)}px"><span class="sf-m"><span class="sf-cl">${splitRich(capText(c, v), { chars: !!CHAR_MOTIONS[m], karaoke: m === "karaoke" || m === "outlineFill", marker: m === "marker", num: m === "numberRoll", tiers: v.fx === "twoTier", swap: m === "swap", emDeco: v.emMode })}</span></span></div>`;
       })
       .join("\n");
     // 훅 (고른 것 하나만)
@@ -920,23 +1213,15 @@
       const b = d.band || {};
       lay += `<div id="sf-band" class="sf-band" style="height:${b.h || 360}px;background:${esc(b.bg || "#111214")};color:${esc(b.color || "#ffffff")};font-family:'${esc(hv0.font)}','Pretendard',sans-serif;font-weight:${hv0.weight}"><div class="sf-band-t" style="font-size:${b.size || 78}px">${rich(b.text || "제목 띠")}</div></div>`;
     }
-    if (d.layout === "split" || d.layout === "card") {
-      for (const pn of d.panels) {
-        const H = d.layout === "split" ? (pn.h || 900) : 1920;
-        const img = pn.image ? `<img class="sf-pimg" src="${esc(base + pn.image)}" alt="">` : "";
-        lay += `<div id="${CSS_ID(pn.id)}" class="clip sf-panel sf-panel-${d.layout}" data-start="${r2(pn.start)}" data-duration="${r2(pn.end - pn.start)}" data-track-index="3" style="height:${H}px">` +
-          `<div class="sf-pin" style="background:${esc(pn.bg || (d.layout === "card" ? "#111214" : "#f4f1ea"))};color:${esc(pn.color || (d.layout === "card" ? "#ffffff" : "#111214"))};font-family:'${esc(hv0.font)}','Pretendard',sans-serif">` +
-          (pn.title ? `<div class="sf-pt" style="font-weight:${hv0.weight}">${rich(pn.title)}</div>` : "") + img +
-          (pn.text ? `<div class="sf-px">${rich(pn.text)}</div>` : "") + (Array.isArray(pn.messages) && pn.messages.length ? chatHTML(Object.assign({}, pn, { title: pn.chatTitle || "환자분" }), 900) : "") + chartHTML(pn) + calloutHTML(pn, H) + `</div></div>` + transLayer(pn);
-      }
-    }
+    // 시각 자료(그림판): 자료마다 레이아웃
+    for (const pn of d.panels || []) lay += visualHTML(pn, d, base, "panel");
     const sfx = (d.sfx || [])
       .map((x, i) => `<audio id="${CSS_ID(x.id)}" class="clip sf-sfx" src="${esc(base + x.file)}" data-start="${r2(x.start)}" data-duration="${r2(x.end - x.start)}" data-track-index="${40 + (i % 4)}" data-volume="${x.volume ?? 0.35}"></audio>`)
       .join("\n");
     return (
       `<div id="sf-lay" class="sf-layer"><div id="sf-cam" class="sf-layer"><div id="sf-fx" class="sf-layer"><div id="sf-shake" class="sf-layer"><div id="sf-filt" class="sf-layer">` +
       `<video id="footage" class="clip" src="${esc(d.source)}" data-start="0" data-duration="${r2(d.duration)}" data-track-index="0" data-has-audio="true"></video>` +
-      `</div></div></div></div><div id="sf-flash" class="sf-layer"></div><div id="sf-spot" class="sf-layer"></div></div>\n${lay}\n${ov}\n${hook}\n${caps}\n${sfx}`
+      `</div></div></div></div><div id="sf-flash" class="sf-layer"></div><div id="sf-spot" class="sf-layer"></div><div id="sf-dim" class="sf-layer"></div></div><div id="sf-ring"></div>\n${lay}\n${ov}\n${hook}\n${caps}\n${sfx}`
     );
   }
 
@@ -969,6 +1254,134 @@
 .sf-hook-stk{position:absolute;right:-.35em;top:-.55em;font-size:.62em;line-height:1;transform:rotate(12deg)}
 #sf-flash{background:#fff;opacity:0;pointer-events:none}
 #sf-spot{opacity:0;pointer-events:none}
+.sf-cap,.sf-hook{z-index:30}
+.sf-ov{z-index:10}
+.sf-panel{z-index:5}
+#sf-ring{position:absolute;left:0;top:0;width:0;height:0;border:10px solid #ffffff;border-radius:50%;box-sizing:border-box;opacity:0;z-index:16;pointer-events:none;box-shadow:0 10px 0 rgba(0,0,0,.25)}
+#sf-dim{background:#000;opacity:0;pointer-events:none}
+.sf-vis{position:absolute;overflow:hidden;font-family:'Pretendard',sans-serif;letter-spacing:-0.03em}
+.sf-vis.lay-float{border-radius:40px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.sf-vis .sf-pin{position:absolute;inset:auto;padding:0;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:30px;border:0;background:none;text-align:center;box-sizing:border-box}
+.sf-vt{font-size:60px;font-weight:800;line-height:1.2;letter-spacing:-0.04em;word-break:keep-all}
+.sf-vt em,.sf-vx em{font-style:normal;background:linear-gradient(transparent 55%,var(--acc) 55%,var(--acc) 92%,transparent 92%)}
+.sf-vx{font-size:42px;font-weight:600;line-height:1.4;color:#3d4148;word-break:keep-all}
+.sf-t{width:100%}
+.lay-full .sf-vt{font-size:74px}
+.lay-full .sf-t:not(.sf-tcal):not(.sf-troute):not(.sf-tcmp),.lay-pip .sf-t:not(.sf-tcal):not(.sf-troute):not(.sf-tcmp){zoom:1.22}
+.lay-full .sf-tcmp .sf-tlab,.lay-pip .sf-tcmp .sf-tlab{font-size:44px}
+.lay-splitTop .sf-vt,.lay-splitBottom .sf-vt{font-size:54px}
+.sf-tchk.compact .sf-tck{font-size:40px;gap:22px}
+.sf-tchk.compact .sf-tbox{width:54px;height:54px}
+.lay-float{height:auto !important}
+.lay-float .sf-pin{position:relative !important;left:auto !important;top:auto !important;height:auto !important;margin:56px 50px 60px}
+.sf-tcard{background:#ffffff;border-radius:24px;box-shadow:0 14px 36px rgba(17,17,20,.10),0 2px 6px rgba(17,17,20,.06);padding:48px 52px;box-sizing:border-box;color:#111214}
+.sf-tnum .sf-tcard{display:flex;flex-direction:column;align-items:center;gap:20px;padding:56px 52px 60px}
+.sf-tn{display:flex;align-items:baseline;justify-content:center;gap:14px;line-height:1}
+.sf-tnv{font-size:220px;font-weight:900;letter-spacing:-0.05em;font-variant-numeric:tabular-nums}
+.sf-tnu{font-size:76px;font-weight:800}
+.sf-tbar{display:block;width:180px;height:16px;border-radius:8px;background:var(--acc);transform-origin:50% 50%}
+.sf-tdesc{font-size:44px;font-weight:600;color:#4a4f57;word-break:keep-all}
+.sf-tcmp{display:flex;align-items:center;gap:22px}
+.sf-tcmp .sf-tcard{flex:1;display:flex;flex-direction:column;gap:16px;padding:48px 24px;min-height:260px;justify-content:center}
+.sf-tcmp .sf-tc2{box-shadow:inset 0 0 0 6px var(--acc),0 14px 36px rgba(17,17,20,.10)}
+.sf-tlab{font-size:40px;font-weight:700;color:#6b7079}
+.sf-tval{font-size:54px;font-weight:800;line-height:1.2;word-break:keep-all;text-wrap:balance}
+.sf-tarrow{flex:none;width:84px;height:84px;border-radius:50%;background:#111214;color:#ffffff;display:flex;align-items:center;justify-content:center}
+.sf-tarrow svg{width:48px;height:48px}
+.sf-tchk .sf-tcard{padding:20px 44px}
+.sf-tck{display:flex;align-items:center;gap:30px;text-align:left;font-size:46px;font-weight:700;border-bottom:2px solid #eef0f3}
+.sf-tck:last-child{border-bottom:0}
+.sf-tbox{width:68px;height:68px;flex:none;overflow:visible}
+.sf-tboxr{fill:var(--acc);stroke:#111214;stroke-width:4}
+.sf-tchkp{fill:none;stroke:#111214;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:0}
+.sf-tcal .sf-tcard{padding:36px 40px 30px}
+.sf-tcalh{display:flex;align-items:baseline;gap:16px;margin-bottom:12px}
+.sf-tcalh b{font-size:56px;font-weight:800}
+.sf-tcalh span{font-size:36px;font-weight:600;color:#7a7f87}
+.sf-twk,.sf-tgrid{display:grid;grid-template-columns:repeat(7,1fr)}
+.sf-twk span{font-size:34px;font-weight:700;color:#7a7f87;padding:6px 0}
+.sf-twk .sun,.sf-tday.sun{color:#e03131}
+.sf-tday{position:relative;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:600}
+.sf-tday.out{visibility:hidden}
+.sf-tday.mk b{font-weight:900}
+.sf-tday b{position:relative;font-weight:600}
+.sf-tring{position:absolute;left:50%;top:50%;width:88px;height:88px;margin:-44px 0 0 -44px;overflow:visible}
+.sf-tring circle{fill:var(--acc);fill-opacity:.35;stroke:#111214;stroke-width:6;stroke-dasharray:100;stroke-dashoffset:0;transform:rotate(-90deg);transform-origin:50% 50%}
+.sf-tgaps{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:22px;flex-wrap:wrap}
+.sf-tgl{font-size:36px;font-weight:700;color:#4a4f57;margin-right:6px}
+.sf-tgap{font-size:38px;font-weight:800;background:var(--acc);color:var(--acct);border-radius:999px;padding:6px 22px}
+.sf-troute .sf-tcard{position:relative;padding:40px 60px 44px}
+.sf-tmap{display:block;overflow:visible}
+.sf-tpath0{fill:none;stroke:#cfd4da;stroke-width:10;stroke-linecap:round;stroke-dasharray:4 22}
+.sf-tpath{fill:none;stroke:#111214;stroke-width:10;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:0}
+.sf-tdot0{fill:#111214}
+.sf-tdot1{fill:var(--acc);stroke:#111214;stroke-width:7}
+.sf-tveh{position:absolute;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:#111214;color:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(0,0,0,.18)}
+.sf-tveh svg{width:46px;height:46px}
+.sf-tends{display:flex;justify-content:space-between;margin-top:8px}
+.sf-tends div{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:200px}
+.sf-tends span{font-size:34px;font-weight:700;color:#7a7f87}
+.sf-tends b{font-size:58px;font-weight:800}
+.lay-full .sf-tends b,.lay-pip .sf-tends b{font-size:70px}
+.lay-full .sf-tends span,.lay-pip .sf-tends span{font-size:40px}
+.sf-tquote .sf-tcard{text-align:left;padding:56px 60px;display:flex;flex-direction:column;gap:26px}
+.sf-tqm{display:block;width:96px;height:72px;color:var(--acc);filter:drop-shadow(0 3px 0 #111214)}
+.sf-tqm svg{width:100%;height:100%}
+.sf-tqt{font-size:58px;font-weight:800;line-height:1.3;word-break:keep-all}
+.sf-tqs{font-size:40px;font-weight:700;color:#6b7079}
+.sf-ttl .sf-tcard{display:flex;flex-direction:column;gap:34px;text-align:left}
+.sf-trh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.sf-trh b{font-size:44px;font-weight:800}
+.sf-trh span{font-size:44px;font-weight:900}
+.sf-ttrack{height:52px;border-radius:999px;background:#eef0f3;overflow:hidden}
+.sf-tfill{display:block;height:100%;border-radius:999px;background:var(--acc);box-shadow:inset 0 0 0 4px rgba(17,18,20,.85);transform-origin:0 50%}
+.sf-chat2{position:relative;margin:0 auto;font-family:'Pretendard',sans-serif;letter-spacing:-0.02em;text-align:left;color:#191919}
+.sf-chat2.framed{border:16px solid #111214;border-radius:72px;box-shadow:0 26px 60px rgba(0,0,0,.35);box-sizing:border-box;background:#111214}
+.sf-cscr{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--cbg);overflow:hidden}
+.sf-chat2.framed .sf-cscr{border-radius:56px}
+.sf-cstat{flex:none;height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 46px;background:var(--chead);color:var(--cht)}
+.sf-cstat b{font-size:34px;font-weight:700;letter-spacing:0}
+.sf-cico{display:flex;gap:12px;align-items:center}
+.sf-cico svg{height:24px;width:auto}
+.sf-chead{flex:none;height:104px;display:flex;align-items:center;gap:16px;padding:0 30px;background:var(--chead);color:var(--cht);border-bottom:1px solid rgba(0,0,0,.06)}
+.sf-chead b{flex:1;font-size:42px;font-weight:800}
+.sf-cbk svg,.sf-chic svg{width:44px;height:44px;display:block}
+.sf-chic{display:flex;gap:24px}
+.sf-cbody{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:0;padding:10px 26px 18px;overflow:hidden}
+.sf-cdate{display:flex;justify-content:center;margin:10px 0 18px}
+.sf-cdate span{font-size:32px;font-weight:600;background:var(--cchip);color:var(--cchipt);border-radius:999px;padding:6px 24px}
+.sf-cm{overflow:hidden}
+.sf-crow{display:flex;align-items:flex-start;gap:16px;padding:10px 0}
+.sf-cm.me .sf-crow{justify-content:flex-end;align-items:flex-end}
+.sf-cav{flex:none;width:92px;height:92px;border-radius:34px;background:#a9b8c6;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.sf-cav svg{width:84%;height:84%}
+.sf-ccol{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sf-cname{font-size:32px;font-weight:600;color:#33393f}
+.sf-cline{display:flex;align-items:flex-end;gap:12px}
+.sf-cbub{position:relative;max-width:560px;font-size:40px;font-weight:500;line-height:1.38;padding:18px 26px;border-radius:30px;word-break:keep-all;white-space:pre-wrap}
+.sf-cbub.tt::before{content:"";position:absolute;top:0;width:28px;height:28px;background:var(--tail)}
+.sf-cm.them .sf-cbub.tt{border-top-left-radius:8px}
+.sf-cm.me .sf-cbub.tt{border-top-right-radius:8px}
+.sf-cm.them .sf-cbub.tt::before{left:-14px;clip-path:polygon(100% 0,0 0,100% 100%)}
+.sf-cm.me .sf-cbub.tt::before{right:-14px;clip-path:polygon(0 0,100% 0,0 100%)}
+.sf-cbub.tb::before{content:"";position:absolute;bottom:0;width:30px;height:34px;background:var(--tail)}
+.sf-cm.them .sf-cbub.tb{border-bottom-left-radius:10px}
+.sf-cm.me .sf-cbub.tb{border-bottom-right-radius:10px}
+.sf-cm.them .sf-cbub.tb::before{left:-12px;clip-path:polygon(100% 0,100% 100%,0 100%)}
+.sf-cm.me .sf-cbub.tb::before{right:-12px;clip-path:polygon(0 0,0 100%,100% 100%)}
+.sf-cmeta{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:0;line-height:1.15;padding-bottom:4px}
+.sf-cm.them .sf-cmeta{align-items:flex-start}
+.sf-cmeta i{font-style:normal;font-size:32px;font-weight:500;color:#4d5560;white-space:nowrap}
+.sf-cun{font-size:32px;font-weight:800}
+.sf-chl{font-style:normal;background:linear-gradient(transparent 52%,#ffe14d 52%,#ffe14d 94%,transparent 94%)}
+.sf-cdots{display:flex;gap:12px;padding:26px 30px}
+.sf-cdots i{width:16px;height:16px;border-radius:50%;background:#8a939c}
+.sf-ctyp .sf-cav{background:transparent}
+.sf-cin{flex:none;height:118px;display:flex;align-items:center;gap:18px;padding:0 26px;background:#ffffff;color:#5a6068;border-top:1px solid rgba(0,0,0,.06)}
+.sf-cplus svg,.sf-cemo svg{width:46px;height:46px;display:block}
+.sf-cfield{flex:1;font-size:34px;font-weight:500;color:#9aa1a9;background:#f2f3f5;border-radius:999px;padding:14px 28px}
+.sf-csend{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.sf-csend svg{width:36px;height:36px}
 .sf-chat{border-radius:34px;overflow:hidden;font-family:'Pretendard',sans-serif;letter-spacing:-0.03em;text-align:left;box-shadow:0 10px 0 rgba(0,0,0,.25)}
 .sf-chat-top{display:flex;align-items:center;gap:18px;padding:22px 30px;background:rgba(255,255,255,.55);font-size:38px;color:#111}
 .sf-cav,.sf-mav{display:inline-block;width:64px;height:64px;border-radius:50%;background:#e9eef2;border:3px solid rgba(0,0,0,.12);flex:none}
@@ -1428,39 +1841,7 @@
     }
   }
   // ── 그림판 요소: 선 그어 짚기 · 막대 · 게이지 (패널이 열린 뒤 차례로) ──
-  // 메신저: 전체 등장 → 말풍선 차례로 (모두 같은 자리에 미리 놓여 있어 겹치지 않음)
-  function chatAnim(tl, root, o, s) {
-    const box = root && root.querySelector(".sf-chat");
-    if (!box) return;
-    const ent = o.enter || "pop";
-    if (ent === "pop") tl.fromTo(box, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(2)" }, s);
-    else if (ent === "rise") tl.fromTo(box, { y: 80, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, s);
-    else if (ent === "fade") tl.fromTo(box, { opacity: 0 }, { opacity: 1, duration: 0.25 }, s);
-    const anim = o.bubbleAnim || "pop";
-    const gap = Number(o.gap) || 0.9;
-    Array.from(root.querySelectorAll(".sf-msg")).forEach((m, i) => {
-      const me = m.classList.contains("sf-me");
-      const msg = (o.messages || [])[i] || {};
-      let t = s + 0.35 + (msg.t != null ? Number(msg.t) : i * gap);
-      const row = m.querySelector(".sf-mcol");
-      const av = m.querySelector(".sf-mav");
-      const dots = m.querySelector(".sf-dots");
-      tl.set(m, { opacity: 1 }, s);
-      if (anim === "typing" && dots) {
-        // 입력 중 점 세 개가 0.45초 깜빡인 뒤 말풍선으로
-        tl.fromTo(dots, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.15, ease: "back.out(2)" }, t);
-        Array.from(dots.children).forEach((d, j) => tl.fromTo(d, { y: 0 }, { y: -8, duration: 0.12, yoyo: true, repeat: 1, ease: "sine.inOut" }, t + 0.08 + j * 0.08));
-        tl.to(dots, { opacity: 0, duration: 0.08 }, t + 0.45);
-        t += 0.5;
-      }
-      const from = anim === "slide" ? { x: me ? 20 : -20, opacity: 0 } : anim === "rise" ? { y: 34, opacity: 0 } : { scale: 0.6, opacity: 0, transformOrigin: me ? "100% 100%" : "0% 100%" };
-      const to = anim === "slide" ? { x: 0, opacity: 1 } : anim === "rise" ? { y: 0, opacity: 1 } : { scale: 1, opacity: 1 };
-      tl.fromTo(row, from, Object.assign({ duration: 0.26, ease: anim === "pop" || anim === "typing" ? "back.out(2.2)" : "power3.out" }, to), t);
-      if (av) tl.fromTo(av, { opacity: 0 }, { opacity: 1, duration: 0.15 }, t);
-    });
-  }
   function panelExtras(tl, q, pn, s) {
-    if (Array.isArray(pn.messages) && pn.messages.length) chatAnim(tl, q("#" + CSS_ID(pn.id)), Object.assign({}, pn, { enter: "none" }), s + 0.35);
     const P = "#" + CSS_ID(pn.id);
     const dots = Array.from((q(P) || { querySelectorAll: () => [] }).querySelectorAll(".sf-cl-dot"));
     dots.forEach((dot, i) => {
@@ -1576,11 +1957,19 @@
     for (const o of d.overlays) {
       const el = q("#" + CSS_ID(o.id));
       if (!el) continue;
-      if (o.kind === "chat") { chatAnim(tl, el, o, o.start); if (o.exit === "pop") tl.to(el.querySelector(".sf-chat"), { scale: 0.9, opacity: 0, duration: 0.15, ease: "power2.in" }, Math.max(o.start, o.end - 0.15)); continue; }
+      if (o.kind === "chat") {
+        if (VIS_LAYOUTS[o.layout]) { faceFor(tl, q, o, o.layout, o.start, o.end); visEnter(tl, el, o.layout, o.start, o.end, o.enter || "auto"); chatAnim(tl, el, o, o.start + 0.25); continue; }
+        const box = el.querySelector(".sf-chat2");
+        if (box && o.enter !== "none") tl.fromTo(box, { scale: 0.92, opacity: 0, y: 30 }, { scale: 1, opacity: 1, y: 0, duration: 0.3, ease: "back.out(1.6)" }, o.start);
+        chatAnim(tl, el, o, o.start);
+        if (box && o.exit === "pop") tl.to(box, { scale: 0.9, opacity: 0, duration: 0.15, ease: "power2.in" }, Math.max(o.start, o.end - 0.15));
+        continue;
+      }
       if (o.kind === "insert") {
         // 장면 컷 전환: cut(바로) · fade · zoom(살짝 확대) · colorWipe · lightLeak
         const tin = o.enter || "cut", tout = o.exit || "cut";
         transFx(tl, q, o, tin, tout);
+        if (VIS_LAYOUTS[o.layout] && o.layout !== "full") faceFor(tl, q, o, o.layout, o.start, o.end);
         if (tin === "lightLeak") tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, o.start);
         if (tout === "lightLeak") tl.to(el, { opacity: 0, duration: 0.3, ease: "power1.in" }, Math.max(o.start, o.end - 0.3));
         if (tin === "fade") tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, o.start);
@@ -1792,33 +2181,17 @@
     // 기본 편집 틀
     const layEl = q("#sf-lay");
     if (d.layout === "titleBand" && layEl) tl.set(layEl, { y: r2((((d.band || {}).h) || 360) * 0.62) }, 0);
-    if (d.layout === "split" || d.layout === "card") {
-      for (const pn of [...d.panels].sort((a, b) => a.start - b.start)) {
-        const el = q("#" + CSS_ID(pn.id) + " .sf-pin");
-        if (!el) continue;
-        const H = d.layout === "split" ? (pn.h || 900) : 1920;
-        const out = Math.max(pn.start + 0.4, pn.end - 0.3);
-        if (d.layout === "split" && layEl) {
-          // 얼굴 영상을 아래로 내려 위 절반을 비움 (set + to: 앞뒤로 탐색해도 값이 꼬이지 않게)
-          const shift = pn.shift ?? 620;
-          tl.set(layEl, { y: 0 }, pn.start);
-          tl.to(layEl, { y: shift, duration: 0.35, ease: "power3.inOut" }, pn.start);
-          tl.to(layEl, { y: 0, duration: 0.3, ease: "power3.inOut" }, out);
-        }
-        const tin = pn.enter || (d.layout === "split" ? "slide" : "fade"), tout = pn.exit || tin;
-        transFx(tl, q, pn, tin, tout);
-        if (tin === "lightLeak") tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, pn.start);
-        if (tout === "lightLeak") tl.to(el, { opacity: 0, duration: 0.25 }, out + 0.05);
-        panelExtras(tl, q, pn, pn.start);
-        if (tin === "slide") tl.fromTo(el, { y: -H }, { y: 0, duration: 0.38, ease: "power3.out" }, pn.start);
-        else if (tin === "fade") tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, pn.start);
-        else if (tin === "pop") tl.fromTo(el, { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, pn.start);
-        const kids = Array.from(el.children);
-        kids.forEach((k, i) => tl.fromTo(k, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, pn.start + 0.18 + i * 0.12));
-        if (tout === "slide") tl.to(el, { y: -H, duration: 0.3, ease: "power3.in" }, out);
-        else if (tout === "fade") tl.to(el, { opacity: 0, duration: 0.25 }, out + 0.05);
-        else if (tout === "pop") tl.to(el, { scale: 0.85, opacity: 0, duration: 0.25, ease: "power2.in" }, out + 0.05);
-      }
+    // 시각 자료(그림판): 레이아웃마다 얼굴 처리 · 등장 · 내용 움직임
+    for (const pn of [...(d.panels || [])].sort((a, b) => a.start - b.start)) {
+      const el = q("#" + CSS_ID(pn.id));
+      if (!el) continue;
+      const L = visLayoutOf(pn, d);
+      const tin = pn.enter || "auto", tout = pn.exit || tin;
+      transFx(tl, q, pn, tin, tout);
+      faceFor(tl, q, pn, L, pn.start, pn.end);
+      visEnter(tl, el, L, pn.start, pn.end, tin);
+      panelExtras(tl, q, pn, pn.start);
+      tplAnim(tl, el, pn, pn.start);
     }
 
     // 자막 모션 (자막마다 caption.motion, 없으면 style.captionMotion)
@@ -1871,5 +2244,5 @@
   // 강조 후보인지: 효과 · 후기 문장(noEmphasis)은 강조 표시 · 강조 역할 · 줌 · 효과음 제안 · 하이라이트에서 모두 빠짐
   const isEmphasisCandidate = (c) => !!c && !c.noEmphasis;
 
-  g.SFScene = { CHAT_ANIMS, CHAT_COLORS, chatHTML, sfxLabel, isEmphasisCandidate, EXITS, TRANS_INFO, applyExit, emDecor, MOTION_GROUPS, CHAR_MOTIONS, LOOK_FX, LOOK_GROUPS, twoTierText, readable, isLight, SFX_LIB, EM_INFO, EFFECT_FIT, LAYOUTS, PANEL_TRANS, SFX_SUGGEST, applyMotion, applyEffect, STYLE_PRESETS, BASE, VALUE_FIELDS, TARGET_KEYS, FONT_OPTIONS, EM_MODES, ROLES, SPEEDS, ALIGNS, valuesCSS, bubbleCSS, chapterCSS, capValues, headValues, ovValues, normalizeStyle, rgba, CAPTION_MOTIONS, INSERT_TRANS, STICKER_IDLE, FONTS, styleCSS, pageCSS, splitRich, pickedHook, hookSize, capSize, capText, capMotion, presetOf, isTextKind, isCentered, rich, EFFECTS, OVERLAY_KINDS, defaults, renderBody, CSS, buildTimeline, visibleAt, camXY, esc };
+  g.SFScene = { CHAT_ANIMS, CHAT_COLORS, CHAT_THEMES, chatHTML, VIS_LAYOUTS, PIP_POS, TEMPLATES, TPL_SAMPLE, ROUTE_MODES, visSlot, visLayoutOf, visualHTML, sfxLabel, isEmphasisCandidate, EXITS, TRANS_INFO, applyExit, emDecor, MOTION_GROUPS, CHAR_MOTIONS, LOOK_FX, LOOK_GROUPS, twoTierText, readable, isLight, SFX_LIB, EM_INFO, EFFECT_FIT, LAYOUTS, PANEL_TRANS, SFX_SUGGEST, applyMotion, applyEffect, STYLE_PRESETS, BASE, VALUE_FIELDS, TARGET_KEYS, FONT_OPTIONS, EM_MODES, ROLES, SPEEDS, ALIGNS, valuesCSS, bubbleCSS, chapterCSS, capValues, headValues, ovValues, normalizeStyle, rgba, CAPTION_MOTIONS, INSERT_TRANS, STICKER_IDLE, FONTS, styleCSS, pageCSS, splitRich, pickedHook, hookSize, capSize, capText, capMotion, presetOf, isTextKind, isCentered, rich, EFFECTS, OVERLAY_KINDS, defaults, renderBody, CSS, buildTimeline, visibleAt, camXY, esc };
 })(typeof globalThis !== "undefined" ? globalThis : window);
