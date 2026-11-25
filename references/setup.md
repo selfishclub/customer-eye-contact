@@ -17,7 +17,7 @@
 | 받아쓰기 | 맥(Apple 칩) `python3 -c "import mlx_whisper"`, 그 밖 `python3 -c "import faster_whisper"` | `pip3 install mlx-whisper` / `pip install faster-whisper`. 첫 실행 때 모델(약 1.5GB)을 받으니 미리 알린다 |
 | Node 24+ | `node -v` | nodejs.org LTS |
 | 렌더(HyperFrames) | 편집기가 `npx --yes hyperframes@0.9.40`으로 부른다. 처음 부를 때 받기가 시작된다 | 인터넷 연결 확인 |
-| 레퍼런스 받기(선택) | `yt-dlp --version` | 없으면 본인이 화면 녹화 · 캡처를 넣는 경로로 간다 |
+| 레퍼런스 받기 · 리서치(선택) | `yt-dlp --version` | 맥 `brew install yt-dlp`. 없으면 리서치는 못 하고, 본인이 화면 녹화 · 캡처를 넣는 경로로 간다 |
 
 **렌더가 아무 말 없이 실패하면:** npx 캐시가 반쯤 깔린 경우가 있다. `ls ~/.npm/_npx/*/node_modules/hyperframes` 로 hyperframes가 없는 캐시 폴더를 찾아, 그 폴더 하나만 지워도 되는지 본인에게 묻고 지운 뒤 다시 렌더한다(편집기 README 「렌더가 안 될 때」).
 
