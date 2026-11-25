@@ -378,7 +378,36 @@
   }
 
   // ── 타임라인 ──
+  // 지금 들어간 모션 요약 (역할마다 · 훅 · 줌/효과) — 누르면 모션 보드가 그 역할로 열림
+  function motionLabel(m) {
+    if (!m || m === "none") return "없음 (바로 나타남)";
+    return S.CAPTION_MOTIONS[m]?.label || m;
+  }
+  function renderMotionSum() {
+    const box = $("motionSum");
+    if (!box || !st.data) return;
+    const d = st.data, sty = d.style || {}, roles = sty.roles || {};
+    const rows = [];
+    for (const [rk, rn] of Object.entries(S.ROLES)) {
+      const n = d.captions.filter((c) => (c.role || "normal") === rk || (rk === "normal" && !c.role)).length;
+      if (!n) continue;
+      const m = Object.assign({}, S.BASE.cap, sty.cap, roles[rk] || {}).motion;
+      const own = d.captions.filter((c) => (c.role || "normal") === rk && c.look && c.look.motion && c.look.motion !== m).length;
+      rows.push(`<button class="mo-row" data-mr="${rk}"><span class="mo-role">${S.esc(rn)} <span class="muted">${n}개</span></span><span class="mo-name${m === "none" ? " off" : ""}">${S.esc(motionLabel(m))}</span>${own ? `<span class="mo-own">따로 ${own}</span>` : ""}<span class="mo-go">바꾸기 ▸</span></button>`);
+    }
+    const hk = (d.hooks || []).find((h) => h.id === d.hookPick) || (d.hooks || [])[0];
+    if (hk) rows.push(`<button class="mo-row" data-mt="hook"><span class="mo-role">훅 등장</span><span class="mo-name">${S.esc(motionLabel(S.headValues(hk, d).motion))}</span><span class="mo-go">바꾸기 ▸</span></button>`);
+    const nfx = (d.effects || []).length;
+    rows.push(`<button class="mo-row" data-mt="fx"><span class="mo-role">줌 · 카메라</span><span class="mo-name${nfx ? "" : " off"}">${nfx ? nfx + "곳" : "없음"}</span><span class="mo-go">넣기 ▸</span></button>`);
+    box.innerHTML = rows.join("") + `<div class="muted small mo-tip">타임라인 자막 칸의 <b>🎬</b> 뒤가 그 자막의 모션이에요</div>`;
+    box.querySelectorAll("[data-mr]").forEach((b) => (b.onclick = () => { st.stTarget = "cap"; st.stScope = "role"; st.stRole = b.dataset.mr; renderStylePanel(); openBoard("motion"); }));
+    box.querySelectorAll("[data-mt]").forEach((b) => (b.onclick = () => openBoard(b.dataset.mt)));
+    const bc = $("boardCount");
+    if (bc) bc.textContent = Object.values(S.CAPTION_MOTIONS).filter((x) => !x.hookOnly).length + "개";
+  }
+
   function renderTimeline() {
+    renderMotionSum();
     const d = st.data;
     const dur = Math.max(d.duration || 0, 1);
     const W = dur * st.pps + 80;
@@ -416,7 +445,7 @@
       track("hooks").appendChild(hb);
     }
     if (track("panels")) (d.panels || []).forEach((pn) => track("panels").appendChild(block("panel", "panel", pn, "🧩 " + (S.TEMPLATES[pn.tpl] && pn.tpl !== "none" ? S.TEMPLATES[pn.tpl] + " · " : "") + (S.VIS_LAYOUTS[S.visLayoutOf(pn, d)] || {}).label + ": " + String(pn.title || pn.text || "").replace(/\*\*/g, ""))));
-    d.captions.forEach((c) => track("captions").appendChild(block("caption", "cap", c, String(c.text).replace(/\*\*/g, "") + (c.role ? " · " + (S.ROLES[c.role] || c.role) : "") + (c.noEmphasis ? " · 효과 문장" : "") + (c.look && Object.keys(c.look).length ? " ✎" : ""))));
+    d.captions.forEach((c) => track("captions").appendChild(block("caption", "cap", c, "🎬" + (S.capMotion(c, d) === "none" ? "바로" : (S.CAPTION_MOTIONS[S.capMotion(c, d)]?.label || "")) + " │ " + String(c.text).replace(/\*\*/g, "") + (c.role ? " · " + (S.ROLES[c.role] || c.role) : "") + (c.noEmphasis ? " · 효과 문장" : "") + (c.look && Object.keys(c.look).length ? " ✎" : ""))));
     d.overlays.forEach((o) => track("overlays").appendChild(block("overlay", "ov", o, o.kind === "chat" ? "💬 메신저: " + String(o.title || "환자분") : o.kind === "insert" ? "🎬 장면 컷: " + String(o.src || "").split("/").pop() : o.kind === "sticker" ? "🧸 스티커: " + String(o.src || o.emoji || "").split("/").pop() : o.kind === "emoji" ? (o.emoji || "") + " 이모지" : S.isTextKind(o.kind) ? (S.OVERLAY_KINDS[o.kind]?.label || o.kind) + ": " + String(o.text || "").replace(/\*\*/g, "").replace(/\n/g, " ") : o.kind === "app" ? "앱 타일: " + (o.text || o.emoji || "") : S.OVERLAY_KINDS[o.kind]?.label || o.kind)));
     d.effects.forEach((e) => track("effects").appendChild(block("effect", "fx", e, (S.EFFECTS[e.type]?.label || e.type) + " ×" + (e.strength ?? 1))));
     if (track("sfx")) (d.sfx || []).forEach((x) => track("sfx").appendChild(block("sfx", "sfx", x, "🔊 " + S.sfxLabel(x))));

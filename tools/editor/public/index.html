@@ -16,7 +16,7 @@
         <button id="btnUndo" title="되돌리기 (⌘Z)">↶</button>
         <button id="btnRedo" title="다시 하기 (⌘⇧Z)">↷</button>
         <button id="btnSave" title="저장 (⌘S)">저장</button>
-        <button id="btnBoard" class="board-btn" title="모션 · 강조 · 줌 효과를 내 자막으로 움직여 보고 고르기">🎬 모션 한눈에 보기</button>
+        <button id="btnBoard" class="board-btn" title="모션 · 강조 · 줌 효과를 내 자막으로 움직여 보고 고르기">🎬 모션 한눈에 보기 <span id="boardCount" class="bd-count"></span></button>
         <button id="btnSend" class="accent" title="편집본과 피드백을 Claude에게 보냅니다">Claude에게 보내기</button>
         <select id="renderQuality" title="렌더 화질">
           <option value="draft">초안 렌더</option>
@@ -67,6 +67,8 @@
 
       <!-- 오른쪽: 추가 · 효과 · 속성 · 피드백 -->
       <aside class="panel right">
+        <h3 class="mo-title">🎬 지금 들어간 모션 <span class="muted small">누르면 움직이는 카드에서 바꿔요</span></h3>
+        <div id="motionSum" class="mo-sum"></div>
         <h3>스타일 <span class="muted small">하나씩 골라 바꿔요</span></h3>
         <div class="st-box">
           <div class="st-row"><span class="st-lab">무엇을</span><div class="seg" id="stTarget"></div></div>

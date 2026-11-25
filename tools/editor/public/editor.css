@@ -266,3 +266,20 @@ button.accent, .seg button.on, .hookbar .hk.on, .ref-list button.on, .bd-card .b
 .bg-grp { font-size: 11.5px; color: var(--muted); margin: 8px 0 4px; font-weight: 700; }
 
 .bd-frame.full { aspect-ratio: 9 / 16; }
+
+/* 모션 잘 보이게 (11/25) — 위 버튼 · 오른쪽 맨 위 요약 · 타임라인 자막 칸 */
+.board-btn { background: var(--accent); color: #111 !important; border-color: var(--accent) !important; font-weight: 800; font-size: 14px; padding: 7px 14px; box-shadow: 0 0 0 3px rgba(233,237,18,.25); animation: boardPulse 2.4s ease-in-out infinite; }
+.board-btn:hover { filter: brightness(1.08); }
+.bd-count { display: inline-block; margin-left: 4px; padding: 0 6px; background: #111; color: var(--accent); border-radius: 2px; font-size: 11.5px; }
+@keyframes boardPulse { 0%,100% { box-shadow: 0 0 0 3px rgba(233,237,18,.25); } 50% { box-shadow: 0 0 0 7px rgba(233,237,18,.08); } }
+.mo-title { color: var(--accent); }
+.mo-sum { display: grid; gap: 6px; margin-bottom: 14px; padding: 10px; border: 2px solid var(--accent); border-radius: 4px; background: rgba(233,237,18,.06); }
+.mo-row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "role go" "name name"; align-items: center; gap: 2px 8px; width: 100%; text-align: left; padding: 7px 10px; background: #111; border: 1px solid #333; border-radius: 3px; }
+.mo-role { grid-area: role; } .mo-go { grid-area: go; } .mo-name { grid-area: name; }
+.mo-row:hover { border-color: var(--accent); }
+.mo-role { font-size: 12px; color: #ddd; }
+.mo-name { font-size: 15px; font-weight: 800; color: var(--accent); }
+.mo-name.off { color: #8a8a8a; font-weight: 600; }
+.mo-own { grid-area: role; justify-self: end; margin-right: 4px; font-size: 10.5px; color: #111; background: #ffcc33; padding: 1px 5px; border-radius: 2px; }
+.mo-go { font-size: 11.5px; color: var(--accent); white-space: nowrap; }
+.mo-tip { margin-top: 2px; }
